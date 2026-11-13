@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- Titulo de pagina  -->
+    <title>Entrega de equipo de protección personal | MENSHEN</title> 
+    <link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+    <main class="pagina">
+        <div class="barra-acciones">
+
+             <!-- Botonos principales -->
+            <button class="boton-secundario" id="agregarFila" type="button">Agregar equipo</button>
+            <button class="boton-principal" id="imprimirFormato" type="button">Validar e imprimir / guardar PDF</button>
+        </div>
+
+         <!-- Inicio de formato -->
+        <form class="formato" id="formatoEntrega">
+            <header class="encabezado">
+                <div class="codigo-con-etiqueta">
+                    <span class="etiqueta-formato">Formato</span>
+                    <span class="codigo">MX/175 &nbsp; D</span>
+                </div>
+                 <!-- ítulo de formato como fue entregado  -->
+                <h1 class="titulo-formato">Entrega de equipo de protección personal e instrucciones de uso, cuidado y limpieza <br> </h1>
+                <img class="logo-menshen" src="https://assets.stauff.com/binaries/threetotwo/content/gallery/stauff/de/55-logos/menshen-logo.jpg?width=560" alt="Logo de MENSHEN">
+            </header>
+             <!-- definición de la funcion class para mostrar la ubicación de la empresa -->
+
+            <p class="empresa">
+                MENSHEN MEXICANA S. DE R.L. DE C.V.<br>
+                Circuito Ernesto Monroy Cárdenas, #109-4,5,6,7 y 8, exportec II C.P. 50223, Toluca de Lerdo, México.
+            </p>
+             <!-- Función para agregar texto -->
+
+            <p class="declaracion">
+                Por medio del presente hago constar que yo como trabajador, cuyos datos aparecen aquí, he recibido el equipo de protección personal descrito e instrucción del uso y me comprometo a cuidarlo y utilizarlo correctamente, solicitando su reposición en caso de requerirse. Si el equipo sufre daños intencionales o negligentes por causas ajenas al trabajo se procederá conforme lo indique el reglamento interior de trabajo.
+            </p> <!-- Ingresar datos de los empleados, como por ejemplo No. de Nomina, nombre completo,etc -->
+
+            <h2 class="seccion-titulo">Datos del empleado</h2>
+            <div class="tabla-contenedor">
+                <table class="datos-empleado">
+                    <thead>
+                        <tr>
+                            <th>No. de nómina</th>
+                            <th>Nombre completo</th>
+                            <th>Fecha de ingreso</th>
+                            <th>Área</th>
+                            <th>Puesto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr> <!-- Diseño de la tabla de datos del empleado -->
+                            <td><input name="nomina" aria-label="Número de nómina" autocomplete="off" required></td>
+                            <td><input name="nombre" aria-label="Nombre completo" autocomplete="name" required></td>
+                            <td><input name="fechaIngreso" aria-label="Fecha de ingreso" type="date" required></td>
+                            <td><input name="area" aria-label="Área" required></td>
+                            <td><input name="puesto" aria-label="Puesto" required></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="tabla-contenedor">
+                <table class="tabla-entregas">
+                    <colgroup>
+                        <col class="col-fecha">
+                                <col class="col-region">
+                                <col class="col-equipo">
+                                <col class="col-talla">
+                                <col class="col-unidad">
+                                <col class="col-cantidad">
+                                <col class="col-motivo">
+                                <col class="col-firma">
+                        <col class="col-firma">
+                        <col class="col-acciones">
+                    </colgroup>
+                    <thead>
+                         <!-- Requerimientos de datos-->
+                        <tr>
+                            <th>Fecha de entrega</th>
+                            <th>Región anatómica</th>
+                            <th>Descripción del equipo de protección personal que se le entrega</th>
+                            <th>Talla</th>
+                            <th>Unidad</th>
+                            <th>Cantidad</th>
+                            <th>Motivo de la entrega (ingreso, reposición, cambio por daño o desgaste, disposición final)</th>
+                            <th>Nombre y firma de recibido</th>
+                            <th>Nombre y firma de entregado</th>
+                            <th class="solo-pantalla" aria-label="Acciones"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="filasEquipo"></tbody>
+                </table>
+            </div>
+             <!-- Footer o pie de pagina que indica  el formato digital y las firmas que se capturan  -->
+            <footer class="pie-formato">
+                <span>Formato digital de entrega de equipo de protección personal.</span>
+                <span>Las firmas se capturan por cada equipo entregado.</span>
+            </footer>
+        </form>
+    </main>
+
+     <!-- Area para definir el canvas en donde se reflejan las firmas  -->
+
+    <section id="printArea" aria-hidden="true"></section>
+
+    <div class="modal" id="modalFirma" role="dialog" aria-modal="true" aria-labelledby="tituloFirma" hidden>
+        <section class="modal-contenido">
+            <h2 id="tituloFirma">Firma digital</h2>
+            <p>Dibuja la firma en el recuadro. La firma se agregará al renglón del equipo seleccionado.</p>
+            <canvas id="canvasFirma" width="1000" height="380" aria-label="Área para dibujar la firma"></canvas>
+            <div class="modal-acciones">
+                <button class="boton-secundario" id="limpiarFirma" type="button">Limpiar</button>
+                <button class="boton-secundario" id="cancelarFirma" type="button">Cancelar</button>
+                <button class="boton-principal" id="guardarFirma" type="button">Usar esta firma</button>
+            </div>
+        </section>
+    </div>
+  <!-- Definición de la plantilla para fila de la tabla,en donde se seleccina la región (cabeza, cuerp completo), se selecciona un equipo y de ser el caso se selecciona la talla -->
+    <template id="plantillaFila">
+        <tr>
+            <td><input class="fecha-entrega" type="date" aria-label="Fecha de entrega"></td>
+            <td>
+                <select class="region-equipo" aria-label="Región anatómica" required>
+                    <option value="">Selecciona región</option>
+                </select>
+            </td>
+            <td>
+                <select class="descripcion-equipo" aria-label="Descripción del equipo" required disabled>
+                    <option value="">Selecciona equipo</option>
+                </select>
+            </td>
+            <td>
+                <select class="talla-equipo" aria-label="Talla" required disabled>
+                    <option value="">Selecciona talla</option>
+                </select>
+            </td>
+            <td><input class="unidad-equipo" aria-label="Unidad de medida" readonly></td>
+            <td><input class="cantidad-equipo" type="number" min="1" step="1" aria-label="Cantidad"></td>
+            <td>  <!-- Se selecciona el motivo por el cual se requiere el equipo, ya sea una reposición o un daño por desgaste-->
+                <select class="motivo-entrega" aria-label="Motivo de la entrega">
+                    <option value="">Selecciona un motivo</option>
+                    <option>Ingreso</option>
+                    <option>Reposición</option>
+                    <option>Cambio por daño o desgaste</option>
+                    <option>Disposición final</option>
+                </select>
+            </td>
+            <td>
+                 <!-- Definición de celda para firmar cuando se ha recibido el equipo -->
+                <div class="celda-firma" data-tipo-firma="recibido">
+                    <input class="nombre-firma" aria-label="Nombre de quien recibe" placeholder="Nombre de quien recibe">
+                    <div class="firma-contenido"><span class="firma-vacia">Sin firma</span></div>
+                    <button class="boton-firma solo-pantalla" type="button">Firmar</button>
+                </div>
+            </td>
+            <td>
+                 <!-- Definición de celda para el usuario que ha realizado la entrega del equipo -->
+                <div class="celda-firma" data-tipo-firma="entregado">
+                    <input class="nombre-firma" aria-label="Nombre de quien entrega" placeholder="Nombre de quien entrega">
+                    <div class="firma-contenido"><span class="firma-vacia">Sin firma</span></div>
+                    <button class="boton-firma solo-pantalla" type="button">Firmar</button>
+                </div>
+            </td>
+            <td class="solo-pantalla"><button class="boton-quitar" type="button" aria-label="Quitar equipo">Quitar</button></td>
+        </tr>
+    </template>
+
+    <script>
+
+        //Definición de variables para las tablas de los equipos, la fila,el modal o ¿canva de la firmas 
+        const filasEquipo = document.getElementById('filasEquipo');
+        const plantillaFila = document.getElementById('plantillaFila');
+        const modalFirma = document.getElementById('modalFirma');
+        const canvasFirma = document.getElementById('canvasFirma');
+        const contextoFirma = canvasFirma.getContext('2d');
+        let celdaFirmaActiva = null;
+        let dibujando = false;
+        let firmaTrazada = false;
+        //Definición de catalogos de equipos que se tienen dentro de la empresa, se definen por región atomatica, unidad de medida (par o pieza y los productos que se tienen dentro de cada region)
+
+        const catalogo = [
+            {
+                region: '1. Cabeza',
+                unidad: 'Pieza',
+                productos: [
+                    { nombre: 'Casco contra impacto y dieléctrico azul' },
+                    { nombre: 'Casco contra impacto y dieléctrico blanco' },
+                    { nombre: 'Casco contra impacto y dieléctrico gris' },
+                    { nombre: 'Casco contra impacto y dieléctrico verde' },
+                    { nombre: 'Sombrero unitalla' },
+                    { nombre: 'Cofia gris' },
+                    { nombre: 'Cofia fucsia' },
+                    { nombre: 'Cofia plisada desechable' },
+                    { nombre: 'Cofia y cubre barba desechable' },
+                    { nombre: 'Cofia y cubre barba de tela' },
+                    { nombre: 'Capucha unitalla' }
+                ]
+            },
+            {
+                region: '2. Ojos y cara',
+                unidad: 'Pieza',
+                productos: [
+                    { nombre: 'Goggles' },
+                    { nombre: 'Gafas de protección transparentes' },
+                    { nombre: 'Gafas de protección oscuras' },
+                    { nombre: 'Protector facial' },
+                    { nombre: 'Careta para soldador' },
+                    { nombre: 'Gafas para soldador' }
+                ]
+            },
+            {
+                region: '3. Oídos',
+                unidad: 'Pieza',
+                productos: [
+                    { nombre: 'Tapones auditivos' },
+                    { nombre: 'Conchas de protección auditiva' }
+                ]
+            },
+            {
+                region: '4. Aparato respiratorio',
+                unidad: 'Pieza',
+                productos: [
+                    { nombre: 'Respirador contra partículas' },
+                    { nombre: 'Respirador contra gases y vapores' },
+                    { nombre: 'Equipo de respiración autónomo' },
+                    { nombre: 'Mascarilla desechable plisada tricapa' }
+                ]
+            },
+            {
+                region: '5. Extremidades superiores',
+                unidad: 'Par',
+                productos: [
+                    { nombre: 'Guantes contra sustancias químicas y agentes biológicos', tallas: ['6', '7', '8', '9'] },
+                    { nombre: 'Coderas' },
+                    { nombre: 'Guantes dieléctricos y antiestáticos', tallas: ['CH', 'M', 'G'] },
+                    { nombre: 'Guantes contra fuego y temperatura extremas', tallas: ['CH', 'M', 'G'] },
+                    { nombre: 'Guantes anticorte', tallas: ['6', '7', '8', '9'] },
+                    { nombre: 'Guantes de carnaza', tallas: ['CH', 'M', 'G'] },
+                    { nombre: 'Guantes piel de cabra', tallas: ['CH', 'M', 'G'] },
+                    { nombre: 'Guantes uso general', tallas: ['6', '7', '8', '9', '10'] },
+                    { nombre: 'Mangas de carnaza' },
+                    { nombre: 'Mangas anticorte unitalla' },
+                    { nombre: 'Mangas kevlar unitalla'  }
+                ]
+            },
+            {
+                region: '6. Tronco',
+                unidad: 'Pieza',
+                productos: [
+                    { nombre: 'Mandil contra fuego y/o altas temperaturas' },
+                    { nombre: 'Mandil contra sustancias químicas y contra riesgos biológicos' },
+                    { nombre: 'Overol desechable', tallas: ['CH', 'M', 'G', 'EG'] },
+                    { nombre: 'Bata desechable', tallas: ['Chica', 'Mediana', 'Grande', 'Extra grande'] },
+                    ...['blanca', 'gris', 'azul marino'].flatMap((color) => (
+                        ['hombre', 'mujer'].map((genero) => ({
+                            nombre: `Bata ${color} de algodón ${genero}`,
+                            tallas: ['30', '32', '34', '36', '38', '40', '42']
+                        }))
+                    )),
+                    ...['blanca', 'gris'].flatMap((color) => (
+                        ['hombre', 'mujer'].map((genero) => ({
+                            nombre: `Playera ${color} tipo polo ${genero}`,
+                            tallas: ['CH', 'M', 'G', 'EG', 'EEG']
+                        }))
+                    )),
+                    { nombre: 'Blusa azul mujer', tallas: ['CH', 'M', 'G', 'EG', 'EEG'] },
+                    { nombre: 'Camisa azul hombre', tallas: ['CH', 'M', 'G', 'EG', 'EEG'] },
+                    { nombre: 'Blusa blanca mujer', tallas: ['CH', 'M', 'G', 'EG', 'EEG'] },
+                    { nombre: 'Camisa blanca hombre', tallas: ['CH', 'M', 'G', 'EG', 'EEG'] },
+                    { nombre: 'Camisa vigilancia', tallas: ['CH', 'M', 'G', 'EG', 'EEG'] },
+                    { nombre: 'Chamarra vigilancia', tallas: ['CH', 'M', 'G', 'EG', 'EGG'] },
+                    { nombre: 'Sudadera de algodón', tallas: ['CH', 'M', 'EG', 'EEG'] },
+                    ...['rojo', 'amarillo', 'blanco', 'verde', 'azul marino'].map((color) => ({
+                        nombre: `Chaleco brigadista ${color}`,
+                        tallas: ['CH', 'M', 'G', 'EG']
+                    })),
+                    { nombre: 'Chaleco reflectante' }
+                ]
+            },
+            {
+                region: '7. Extremidades inferiores',
+                unidad: 'Par',
+                productos: [
+                    { nombre: 'Calzado de seguridad tipo borceguí', tallas: ['22', '23', '24', '25', '26', '27', '28', '29', '30'] },
+                    { nombre: 'Rodilleras' },
+                    ...[
+                        ['cargo gris', 'Pantalón tipo cargo gris'],
+                        ['cargo caqui', 'Pantalón tipo cargo caqui'],
+                        ['azul marino vigilancia', 'Pantalón azul marino vigilancia']
+                    ].flatMap(([estilo, descripcion]) => (
+                        ['mujer', 'hombre'].map((genero) => ({
+                            nombre: `${descripcion} ${genero}`,
+                            tallas: ['28', '30', '32', '34', '36', '38', '40', '42', '44'],
+                            unidad: 'Pieza'
+                        }))
+                    )),
+                    { nombre: 'Polainas de carnaza', unidad: 'Pieza' },
+                    { nombre: 'Talonera antiestática' }
+                ]
+            },
+            {
+                region: '8. Otros',
+                unidad: 'Pieza',
+                productos: [
+                    { nombre: 'Arnés' },
+                    { nombre: 'Línea de vida' },
+                    { nombre: 'Detector de gases' },
+                    { nombre: 'Trajes de bombero' },
+                    { nombre: 'Barbiquejo' },
+                    { nombre: 'Mochila de tela' }
+                ]
+            }
+        ];
+
+        //Función de js ppara agregar opctiones a los selectores de cada equipo, region de cuerpo y talla,  asi coomo reiniciar opciones (se quita funcion despues para agregar la base de datos)
+
+        function agregarOpcion(select, texto, valor = texto) {
+            const opcion = document.createElement('option');
+            opcion.value = valor;
+            opcion.textContent = texto;
+            select.append(opcion);
+        }
+
+        function reiniciarOpciones(select, etiqueta) {
+            select.replaceChildren();
+            agregarOpcion(select, etiqueta, '');
+            select.value = '';
+        }
+        //aactualizar datos de cada región del cuero desde 1-8 para que se pueda seleccionar el equipo de protección personal, la talla y la unidad de medida (pieza o par)
+        function actualizarProductos(fila) {
+            const region = catalogo.find((grupo) => grupo.region === fila.querySelector('.region-equipo').value);
+            const descripcion = fila.querySelector('.descripcion-equipo');
+            const talla = fila.querySelector('.talla-equipo');
+            fila.querySelector('.unidad-equipo').value = '';
+            reiniciarOpciones(descripcion, region ? 'Selecciona equipo' : 'Selecciona región');
+            reiniciarOpciones(talla, 'Selecciona talla');
+            descripcion.disabled = !region;
+            talla.disabled = true;
+
+            if (region) {
+                for (const [indice, producto] of region.productos.entries()) {
+                    agregarOpcion(descripcion, producto.nombre, String(indice));
+                }
+            }
+        }
+
+        function actualizarTallas(fila) {
+            const grupo = catalogo.find((item) => item.region === fila.querySelector('.region-equipo').value);
+            const indiceProducto = fila.querySelector('.descripcion-equipo').value;
+            const producto = indiceProducto ? grupo?.productos[Number(indiceProducto)] : undefined;
+            const talla = fila.querySelector('.talla-equipo');
+            const unidad = fila.querySelector('.unidad-equipo');
+            reiniciarOpciones(talla, producto ? 'Selecciona talla' : 'Selecciona equipo');
+            unidad.value = producto ? (producto.unidad || grupo.unidad) : '';
+            talla.disabled = !producto;
+
+            if (producto) {
+                for (const valor of producto.tallas || ['No aplica']) {
+                    agregarOpcion(talla, valor);
+                }
+            }
+        }
+        //Crear fila en fecha de entrega, junto region atomanica, descripcion, talla, unidad, cantidad, etc 
+
+        function crearFila() {
+            const fila = plantillaFila.content.cloneNode(true);
+            const filaElemento = fila.querySelector('tr');
+            const fecha = fila.querySelector('.fecha-entrega');
+            const hoy = new Date();
+            fecha.value = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+            const region = fila.querySelector('.region-equipo');
+            for (const grupo of catalogo) {
+                agregarOpcion(region, grupo.region);
+            }
+            filasEquipo.append(fila);
+            filaElemento.addEventListener('change', (evento) => {
+                if (evento.target.matches('.region-equipo')) {
+                    actualizarProductos(filaElemento);
+                } else if (evento.target.matches('.descripcion-equipo')) {
+                    actualizarTallas(filaElemento);
+                }
+            });
+        }
+        //Abrir firma cuando se selecciona el boton de firmar, se limpia el canvas y se habilita el canva para pdoer dibujar la firma y posteriormente se cierra el canva y se visualiza la firma dentro de la celda 
+
+        function abrirFirma(celda) {
+            celdaFirmaActiva = celda;
+            firmaTrazada = false;
+            contextoFirma.clearRect(0, 0, canvasFirma.width, canvasFirma.height);
+            modalFirma.hidden = false;
+            document.getElementById('limpiarFirma').focus();
+        }
+
+        function cerrarFirma() {
+            modalFirma.hidden = true;
+            celdaFirmaActiva = null;
+        }
+
+        function coordenadas(evento) {
+            const rectangulo = canvasFirma.getBoundingClientRect();
+            return {
+                x: (evento.clientX - rectangulo.left) * canvasFirma.width / rectangulo.width,
+                y: (evento.clientY - rectangulo.top) * canvasFirma.height / rectangulo.height
+            };
+        }
+
+        contextoFirma.strokeStyle = '#111';
+        contextoFirma.lineWidth = 5;
+        contextoFirma.lineCap = 'round';
+        contextoFirma.lineJoin = 'round';
+
+        canvasFirma.addEventListener('pointerdown', (evento) => {
+            evento.preventDefault();
+            canvasFirma.setPointerCapture(evento.pointerId);
+            dibujando = true;
+            firmaTrazada = true;
+            const punto = coordenadas(evento);
+            contextoFirma.beginPath();
+            contextoFirma.moveTo(punto.x, punto.y);
+            contextoFirma.lineTo(punto.x, punto.y);
+            contextoFirma.stroke();
+        });
+
+        canvasFirma.addEventListener('pointermove', (evento) => {
+            if (!dibujando) return;
+            const punto = coordenadas(evento);
+            contextoFirma.lineTo(punto.x, punto.y);
+            contextoFirma.stroke();
+        });
+
+        function terminarTrazo() {
+            dibujando = false;
+            contextoFirma.closePath();
+        }
+
+        canvasFirma.addEventListener('pointerup', terminarTrazo);
+        canvasFirma.addEventListener('pointercancel', terminarTrazo);
+        canvasFirma.addEventListener('lostpointercapture', terminarTrazo);
+
+        document.getElementById('limpiarFirma').addEventListener('click', () => {
+            contextoFirma.clearRect(0, 0, canvasFirma.width, canvasFirma.height);
+            firmaTrazada = false;
+        });
+
+        document.getElementById('cancelarFirma').addEventListener('click', cerrarFirma);
+
+        document.getElementById('guardarFirma').addEventListener('click', () => {
+            if (!firmaTrazada || !celdaFirmaActiva) {
+                window.alert('Dibuja la firma antes de guardarla.');
+                return;
+            }
+
+            const contenido = celdaFirmaActiva.querySelector('.firma-contenido');
+            const imagen = document.createElement('img');
+            imagen.className = 'firma-imagen';
+            imagen.alt = 'Firma digital capturada';
+            imagen.src = canvasFirma.toDataURL('image/png');
+            contenido.replaceChildren(imagen);
+            cerrarFirma();
+        });
+
+        filasEquipo.addEventListener('click', (evento) => {
+            const boton = evento.target.closest('button');
+            if (!boton) return;
+
+            const fila = boton.closest('tr');
+            if (boton.classList.contains('boton-firma')) {
+                abrirFirma(boton.closest('.celda-firma'));
+            } else if (boton.classList.contains('boton-quitar')) {
+                fila.remove();
+            }
+        });
+
+        document.getElementById('agregarFila').addEventListener('click', crearFila);
+
+
+
+        const printArea = document.getElementById('printArea');
+
+        function convertirControlesEnTexto(original, copia) {
+            const controlesOriginales = original.querySelectorAll('input, select, textarea');
+            const controlesCopia = copia.querySelectorAll('input, select, textarea');
+
+            controlesCopia.forEach((control, indice) => {
+                const controlOriginal = controlesOriginales[indice];
+                const texto = controlOriginal instanceof HTMLSelectElement
+                    ? controlOriginal.selectedOptions[0]?.textContent || ''
+                    : controlOriginal.value;
+                const contenido = document.createElement('span');
+                contenido.textContent = texto;
+                control.replaceWith(contenido);
+            });
+
+            copia.querySelectorAll('button').forEach((boton) => boton.remove());
+        }
+        //Funcion que se realizar para preparar el formto para imprimir, se esconden las celdas de firma y se eliminan las filas que no tienen equipo, se ejecutan las validacionesde de las celdas de firma y se valida que se aya agregado al menos un equipo de protección personal antes de imprimir
+        function prepararFormatoParaImprimir(filasConEquipo) {
+            printArea.replaceChildren();
+
+            const formatoOriginal = document.getElementById('formatoEntrega');
+            const formato = formatoOriginal.cloneNode(true);
+            formato.classList.add('formato');
+            convertirControlesEnTexto(formatoOriginal, formato);
+            formato.querySelectorAll('.boton-firma, .boton-quitar').forEach((boton) => boton.remove());
+
+            const filasSeleccionadas = new Set(filasConEquipo.map((fila) => (
+                [...filasEquipo.children].indexOf(fila)
+            )));
+            [...formato.querySelectorAll('#filasEquipo tr')].forEach((fila, indice) => {
+                if (!filasSeleccionadas.has(indice)) fila.remove();
+            });
+
+            const tabla = formato.querySelector('.tabla-entregas');
+            const anchosImpresion = new Map([
+                [0, '10%'],
+                [2, '28%'],
+                [5, '6%'],
+                [6, '19%'],
+                [7, '18.5%'],
+                [8, '18.5%']
+            ]);
+
+            for (const grupo of tabla.querySelectorAll('colgroup')) {
+                [...grupo.children].forEach((columna, indice) => {
+                    if (!anchosImpresion.has(indice)) {
+                        columna.remove();
+                    } else {
+                        columna.style.width = anchosImpresion.get(indice);
+                    }
+                });
+            }
+
+            for (const fila of tabla.querySelectorAll('tr')) {
+                for (const indice of [9, 4, 3, 1]) {
+                    fila.deleteCell(indice);
+                }
+            }
+
+            printArea.append(formato);
+            document.body.classList.add('imprimiendo');
+        }
+
+        window.addEventListener('afterprint', () => {
+            document.body.classList.remove('imprimiendo');
+            printArea.replaceChildren();
+        });
+
+        document.getElementById('imprimirFormato').addEventListener('click', () => {
+            const formulario = document.getElementById('formatoEntrega');
+            const camposEmpleado = formulario.querySelectorAll('.datos-empleado input');
+            for (const campo of camposEmpleado) {
+                if (!campo.reportValidity()) return;
+            }
+
+            const filasConEquipo = [...filasEquipo.querySelectorAll('tr')].filter((fila) => (
+                fila.querySelector('.descripcion-equipo').value
+            ));
+
+            if (filasConEquipo.length === 0) {
+                window.alert('Agrega al menos un equipo de protección personal antes de imprimir.');
+                return;
+            }
+
+            for (const [indice, fila] of filasConEquipo.entries()) {
+                const campos = [
+                    fila.querySelector('.fecha-entrega').value,
+                    fila.querySelector('.region-equipo').value,
+                    fila.querySelector('.descripcion-equipo').value,
+                    fila.querySelector('.talla-equipo').value,
+                    fila.querySelector('.unidad-equipo').value,
+                    fila.querySelector('.cantidad-equipo').value,
+                    fila.querySelector('.motivo-entrega').value
+                ];
+                const firmas = [...fila.querySelectorAll('.celda-firma')];
+                const firmasCompletas = firmas.every((celda) => (
+                    celda.querySelector('.nombre-firma').value.trim()
+                    && celda.querySelector('.firma-imagen')
+                ));
+
+                if (campos.some((valor) => !valor) || !firmasCompletas) {
+                    window.alert(`Completa la fecha, región, descripción, talla, unidad, cantidad, motivo, nombres y ambas firmas del equipo en el renglón ${indice + 1}.`);
+                    return;
+                }
+            }
+
+            prepararFormatoParaImprimir(filasConEquipo);
+            window.print();
+        });
+
+        for (let indice = 0; indice < 8; indice += 1) {
+            crearFila();
+        }
+    </script>
+</body>
+</html>

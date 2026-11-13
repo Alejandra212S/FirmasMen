@@ -1,0 +1,457 @@
+ :root {
+            font-family: Arial, sans-serif;
+            color: #17212b;
+            background: #edf1f5;
+            font-synthesis: none;
+            font-size: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 28px 18px;
+        }
+
+        .pagina {
+            width: min(100%, 1180px);
+            margin: 0 auto;
+        }
+
+        .barra-acciones {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 6px;
+            padding: 10px 15px;
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        button:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: 3px solid #337ab7;
+            outline-offset: 2px;
+        }
+
+        .boton-principal {
+            color: #fff;
+            background: #173c59;
+        }
+
+        .boton-secundario {
+            color: #173c59;
+            background: #dce8f0;
+        }
+
+        .formato {
+            padding: 26px;
+            background: #fff;
+            border: 1px solid #d5dce2;
+            box-shadow: 0 8px 26px rgba(24, 42, 58, 0.1);
+        }
+
+        .encabezado {
+            display: grid;
+            grid-template-columns: 150px 1fr 150px;
+            align-items: end;
+            gap: 12px;
+            padding-bottom: 0;
+            border-bottom: 2px solid #263746;
+        }
+
+        .codigo-con-etiqueta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .etiqueta-formato {
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .codigo {
+            font-size: 1rem;
+            font-weight: 800;
+        }
+
+        .titulo-formato {
+            margin: 0;
+            text-align: center;
+            font-size: clamp(0.92rem, 1.34vw, 1.2rem);
+        }
+
+        .logo-menshen {
+            display: flex;
+            width: 900px;
+            max-width: 120%;
+            height: auto;
+            justify-self: end;
+        }
+
+        .empresa {
+            margin: 13px 0 10px;
+            text-align: center;
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .declaracion {
+            margin: 0 0 20px;
+            padding: 12px 14px;
+            background: #fff9b8;
+            border-left: 4px solid #e6ca36;
+            line-height: 1.5;
+            font-size: 0.84rem;
+        }
+
+        .seccion-titulo {
+            margin: 20px 0 0;
+            padding: 8px;
+            color: #15202b;
+            background: #ed3391;
+            text-align: center;
+            font-size: 0.88rem;
+        }
+
+        .tabla-contenedor {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+
+        th,
+        td {
+            border: 1px solid #47515a;
+        }
+
+        th {
+            padding: 8px 6px;
+            background: #e8ebee;
+            font-size: 0.76rem;
+            line-height: 1.25;
+        }
+
+        .datos-empleado th {
+            color: #333;
+            background: #d3d3d3;
+        }
+
+        .datos-empleado td {
+            height: 48px;
+            padding: 4px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            min-width: 0;
+            padding: 8px;
+            border: 1px solid #c5cdd4;
+            border-radius: 4px;
+            color: inherit;
+            background: #fff;
+            font: 0.86rem Arial, sans-serif;
+            text-align: center;
+        }
+
+        .tabla-entregas {
+            margin-top: 20px;
+        }
+
+        .tabla-entregas th {
+            background: #ed3391;
+        }
+
+        .tabla-entregas td {
+            height: 80px;
+            padding: 5px;
+            vertical-align: middle;
+        }
+
+        .tabla-entregas input,
+        .tabla-entregas select {
+            height: 100%;
+        }
+
+        .tabla-entregas {
+            min-width: 1400px;
+        }
+
+        .col-fecha { width: 7%; }
+        .col-region { width: 10%; }
+        .col-equipo { width: 19%; }
+        .col-talla { width: 6%; }
+        .col-unidad { width: 5%; }
+        .col-cantidad { width: 5%; }
+        .col-motivo { width: 11%; }
+        .col-firma { width: 16.5%; }
+        .col-acciones { width: 4%; }
+
+        .celda-firma {
+            display: flex;
+            height: 68px;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .celda-firma input {
+            height: 30px;
+            padding: 4px 6px;
+            font-size: 0.78rem;
+        }
+
+        .firma-contenido {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .firma-vacia {
+            color: #7b8791;
+            font-size: 0.72rem;
+        }
+
+        .firma-imagen {
+            display: block;
+            width: 100%;
+            height: 34px;
+            object-fit: contain;
+        }
+
+        .boton-firma,
+        .boton-quitar {
+            padding: 5px 8px;
+            color: #173c59;
+            background: #e7eef4;
+            font-size: 0.75rem;
+        }
+
+        .boton-quitar {
+            color: #822540;
+            background: #f9e3ea;
+        }
+
+        .pie-formato {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            margin-top: 15px;
+            color: #53616c;
+            font-size: 0.78rem;
+        }
+
+        #printArea {
+            display: none;
+        }
+
+        .modal {
+            position: fixed;
+            z-index: 2;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            padding: 16px;
+            background: rgba(15, 27, 38, 0.65);
+        }
+
+        .modal[hidden] {
+            display: none;
+        }
+
+        .modal-contenido {
+            width: min(100%, 560px);
+            max-height: calc(100dvh - 32px);
+            overflow-y: auto;
+            padding: 20px;
+            border-radius: 10px;
+            background: #fff;
+        }
+
+        .modal-contenido h2 {
+            margin: 0 0 6px;
+        }
+
+        .modal-contenido p {
+            margin: 0 0 14px;
+            color: #53616c;
+        }
+
+        #canvasFirma {
+            display: block;
+            width: 100%;
+            height: 190px;
+            border: 1px dashed #82909b;
+            border-radius: 5px;
+            background: #fff;
+            touch-action: none;
+        }
+
+        .modal-acciones {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        @media screen and (max-width: 1366px) {
+            body {
+                padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+            }
+
+            .barra-acciones button,
+            .boton-firma,
+            .boton-quitar,
+            .modal-acciones button {
+                min-height: 44px;
+            }
+
+            input,
+            select,
+            textarea {
+                min-height: 44px;
+                font-size: 16px;
+            }
+
+            .modal-contenido {
+                width: min(100%, 760px);
+                max-height: calc(100dvh - 32px);
+                overflow-y: auto;
+            }
+        }
+
+        @media (max-width: 720px) {
+            body {
+                padding: 14px 8px;
+            }
+
+            .formato {
+                padding: 16px 10px;
+            }
+
+            .encabezado {
+                grid-template-columns: 1fr auto;
+            }
+
+            .titulo-formato {
+                grid-column: 1 / -1;
+                grid-row: 2;
+            }
+
+            .logo-menshen {
+                grid-column: 2;
+                grid-row: 1;
+            }
+
+            .datos-empleado {
+                min-width: 720px;
+            }
+
+            .tabla-entregas {
+                min-width: 1400px;
+            }
+        }
+
+        @media print {
+            @page {
+                size: landscape;
+                margin: 5mm 10mm;
+            }
+
+            body.imprimiendo {
+                padding: 0;
+                background: #fff;
+                print-color-adjust: exact;
+                -webkit-print-color-adjust: exact;
+            }
+
+            body.imprimiendo > :not(#printArea) {
+                display: none !important;
+            }
+
+            body.imprimiendo #printArea {
+                display: block !important;
+            }
+
+            #printArea .formato {
+                width: 100%;
+                padding: 0;
+                border: 0;
+                box-shadow: none;
+            }
+
+            #printArea .encabezado {
+                grid-template-columns: 120px minmax(0, 1fr) 180px;
+                align-items: end;
+                min-height: 60px;
+            }
+
+            #printArea .logo-menshen {
+                display: block;
+                width: 180px;
+                height: 60px;
+                object-fit: contain;
+            }
+
+            #printArea .tabla-contenedor {
+                overflow: visible;
+            }
+
+            #printArea .datos-empleado,
+            #printArea .tabla-entregas {
+                width: 100%;
+                min-width: 0;
+            }
+
+            #printArea .datos-empleado th {
+                color: #333;
+                background: #d3d3d3;
+            }
+
+            #printArea td {
+                text-align: center;
+            }
+
+            #printArea .tabla-entregas {
+                margin-top: 16px;
+            }
+
+            #printArea input,
+            #printArea select {
+                padding: 3px;
+                border: 0;
+                border-radius: 0;
+                background: transparent;
+                appearance: none;
+                font-size: 9pt;
+            }
+
+            #printArea .tabla-entregas td {
+                height: 58px;
+            }
+
+            #printArea .firma-imagen {
+                display: block;
+                width: 100%;
+                height: 32px;
+                object-fit: contain;
+            }
+        }
