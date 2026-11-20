@@ -13,6 +13,7 @@
 
              <!-- Botonos principales -->
             <button class="boton-secundario" id="agregarFila" type="button">Agregar equipo</button>
+            <button class="boton-secundario" id="guardarFormato" type="button">Guardar en base de datos</button>
             <button class="boton-principal" id="imprimirFormato" type="button">Validar e imprimir / guardar PDF</button>
         </div>
 
@@ -549,7 +550,7 @@
             printArea.replaceChildren();
         });
 
-        document.getElementById('imprimirFormato').addEventListener('click', () => {
+        async function guardarResponsiva(imprimir) {
             const formulario = document.getElementById('formatoEntrega');
             const camposEmpleado = formulario.querySelectorAll('.datos-empleado input');
             for (const campo of camposEmpleado) {
@@ -561,7 +562,7 @@
             ));
 
             if (filasConEquipo.length === 0) {
-                window.alert('Agrega al menos un equipo de protección personal antes de imprimir.');
+                window.alert('Agrega al menos un equipo de protección personal antes de guardar.');
                 return;
             }
 
@@ -587,8 +588,58 @@
                 }
             }
 
-            prepararFormatoParaImprimir(filasConEquipo);
-            window.print();
+            const empleado = {
+                nomina: formulario.querySelector('[name="nomina"]').value.trim(),
+                nombre: formulario.querySelector('[name="nombre"]').value.trim(),
+                fechaIngreso: formulario.querySelector('[name="fechaIngreso"]').value,
+                area: formulario.querySelector('[name="area"]').value.trim(),
+                puesto: formulario.querySelector('[name="puesto"]').value.trim()
+            };
+
+            const equipos = filasConEquipo.map((fila) => {
+                const celdasFirma = fila.querySelectorAll('.celda-firma');
+                const recibido = celdasFirma[0];
+                const entregado = celdasFirma[1];
+                return {
+                    fechaEntrega: fila.querySelector('.fecha-entrega').value,
+                    region: fila.querySelector('.region-equipo').value,
+                    articulo: fila.querySelector('.descripcion-equipo').selectedOptions[0]?.textContent || '',
+                    talla: fila.querySelector('.talla-equipo').value,
+                    unidad: fila.querySelector('.unidad-equipo').value,
+                    cantidad: Number(fila.querySelector('.cantidad-equipo').value),
+                    motivo: fila.querySelector('.motivo-entrega').value,
+                    nombreRecibe: recibido.querySelector('.nombre-firma').value.trim(),
+                    firmaRecibe: recibido.querySelector('.firma-imagen')?.src || '',
+                    nombreEntrega: entregado.querySelector('.nombre-firma').value.trim(),
+                    firmaEntrega: entregado.querySelector('.firma-imagen')?.src || ''
+                };
+            });
+
+            try {
+                const respuesta = await fetch('/api/guardar-responsiva', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ empleado, equipos })
+                });
+                const resultado = await respuesta.json();
+                if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo guardar.');
+                if (imprimir) {
+                    prepararFormatoParaImprimir(filasConEquipo);
+                    window.print();
+                } else {
+                    window.alert(resultado.mensaje || 'Datos guardados correctamente.');
+                }
+            } catch (error) {
+                window.alert(error.message);
+            }
+        }
+
+        document.getElementById('guardarFormato').addEventListener('click', () => {
+            guardarResponsiva(false);
+        });
+
+        document.getElementById('imprimirFormato').addEventListener('click', () => {
+            guardarResponsiva(true);
         });
 
         for (let indice = 0; indice < 8; indice += 1) {

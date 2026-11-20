@@ -2,20 +2,21 @@ require('dotenv').config();
 const express = require('express');
 const mssql = require('mssql');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 
 // Configuraciones del servidor express
 app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Ampliamos el límite para soportar el tamaño de la firma en Base64
+app.use(express.static(path.join(__dirname)));
 
 // Configuración de la conexión a SQL Server Express
-// Configuración robusta usando el nuevo usuario de SQL Server
 const dbConfig = {
-    user: 'UsuarioPlanta',
-    password: 'TuPasswordPlanta123!',
-    server: 'localhost\\SQLEXPRESS',
-    database: 'EnviosImagenesDB',
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    server: process.env.DB_SERVER || 'localhost\\SQLEXPRESS',
+    database: process.env.DB_NAME || 'EnviosImagenesDB',
     options: {
         encrypt: false, 
         trustServerCertificate: true // Requerido para desarrollo local
@@ -24,43 +25,80 @@ const dbConfig = {
 
 // Ruta API encargada de procesar el registro y guardarlo en SQL Server
 app.post('/api/guardar-responsiva', async (req, res) => {
-    const { nomina, nombre, area, articulo, talla, firma } = req.body;
+    const { empleado, equipos } = req.body;
+    let transaction;
 
     try {
-        // Conectar al clúster de base de datos
-        let pool = await mssql.connect(dbConfig);
+        if (!empleado || !Array.isArray(equipos) || equipos.length === 0) {
+            return res.status(400).json({ error: 'Faltan los datos del empleado o de los equipos.' });
+        }
 
-        // 1. Verificar si el empleado ya existe por su Nómina, si no, registrarlo primero.
-        let resultadoEmpleado = await pool.request()
-            .input('nomina', mssql.VarChar(20), nomina)
-            .input('nombre', mssql.NVarChar(150), nombre)
-            .input('area', mssql.NVarChar(50), area)
+        const pool = await mssql.connect(dbConfig);
+        transaction = new mssql.Transaction(pool);
+        await transaction.begin();
+
+        const empleadoRequest = new mssql.Request(transaction);
+        const resultadoEmpleado = await empleadoRequest
+            .input('nomina', mssql.VarChar(20), empleado.nomina)
+            .input('nombre', mssql.NVarChar(150), empleado.nombre)
+            .input('fechaIngreso', mssql.Date, empleado.fechaIngreso)
+            .input('area', mssql.NVarChar(50), empleado.area)
+            .input('puesto', mssql.NVarChar(50), empleado.puesto)
             .query(`
-                IF NOT EXISTS (SELECT 1 FROM Empleados WHERE Nomina = @nomina)
+                IF NOT EXISTS (SELECT 1 FROM dbo.Empleados WHERE Nomina = @nomina)
                 BEGIN
-                    INSERT INTO Empleados (Nomina, NombreCompleto, AreaPlanta) 
-                    VALUES (@nomina, @nombre, @area);
+                    INSERT INTO dbo.Empleados (Nomina, NombreCompleto, FechaIngreso, AreaPlanta, Puesto)
+                    VALUES (@nomina, @nombre, @fechaIngreso, @area, @puesto);
                 END
-                SELECT Id FROM Empleados WHERE Nomina = @nomina;
+                ELSE
+                BEGIN
+                    UPDATE dbo.Empleados
+                    SET NombreCompleto = @nombre,
+                        FechaIngreso = @fechaIngreso,
+                        AreaPlanta = @area,
+                        Puesto = @puesto
+                    WHERE Nomina = @nomina;
+                END
+                SELECT Id FROM dbo.Empleados WHERE Nomina = @nomina;
             `);
 
-        // Extraer el Id numérico del empleado
         const empleadoId = resultadoEmpleado.recordset[0].Id;
 
-        // 2. Insertar la asignación del artículo EPP junto con la firma Base64
-        await pool.request()
-            .input('empleadoId', mssql.Int, empleadoId)
-            .input('articulo', mssql.NVarChar(100), articulo)
-            .input('talla', mssql.NVarChar(20), talla)
-            .input('firma', mssql.VarChar(mssql.MAX), firma) // Guardamos el binario traducido en MAX
-            .query(`
-                INSERT INTO AsignacionesEPP (EmpleadoId, ArticuloEntregado, Talla, UrlFirma)
-                VALUES (@empleadoId, @articulo, @talla, @firma);
-            `);
+        for (const equipo of equipos) {
+            await new mssql.Request(transaction)
+                .input('empleadoId', mssql.Int, empleadoId)
+                .input('fechaEntrega', mssql.Date, equipo.fechaEntrega)
+                .input('region', mssql.NVarChar(100), equipo.region)
+                .input('articulo', mssql.NVarChar(150), equipo.articulo)
+                .input('talla', mssql.NVarChar(20), equipo.talla)
+                .input('unidad', mssql.NVarChar(20), equipo.unidad)
+                .input('cantidad', mssql.Int, equipo.cantidad)
+                .input('motivo', mssql.NVarChar(100), equipo.motivo)
+                .input('nombreRecibe', mssql.NVarChar(150), equipo.nombreRecibe)
+                .input('firmaRecibe', mssql.VarChar(mssql.MAX), equipo.firmaRecibe)
+                .input('nombreEntrega', mssql.NVarChar(150), equipo.nombreEntrega)
+                .input('firmaEntrega', mssql.VarChar(mssql.MAX), equipo.firmaEntrega)
+                .query(`
+                    INSERT INTO dbo.AsignacionesEPP (
+                        EmpleadoId, FechaEntrega, RegionAnatomica, ArticuloEntregado,
+                        Talla, Unidad, Cantidad, MotivoEntrega,
+                        NombreRecibe, FirmaRecibe, NombreEntrega, FirmaEntrega
+                    )
+                    VALUES (
+                        @empleadoId, @fechaEntrega, @region, @articulo,
+                        @talla, @unidad, @cantidad, @motivo,
+                        @nombreRecibe, @firmaRecibe, @nombreEntrega, @firmaEntrega
+                    );
+                `);
+        }
 
+        await transaction.commit();
         res.status(200).json({ mensaje: '¡Registro completado y guardado correctamente!' });
 
     } catch (error) {
+        if (transaction) {
+            try { await transaction.rollback(); } catch (_) {}
+        }
         console.error('Error procesando la base de datos:', error);
         res.status(500).json({ error: 'Error en SQL Server: ' + error.message });
     }
