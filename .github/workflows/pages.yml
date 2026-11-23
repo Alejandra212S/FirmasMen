@@ -31,6 +31,8 @@ jobs:
         run: |
           mkdir -p public
           cp index.html public/index.html
+          cp estilos.css public/estilos.css
+          cp config.js public/config.js
           printf "window.FIRMAS_API_URL = '%s';\n" "${{ vars.FIRMAS_API_URL }}" > public/config.js
 
       - name: Upload site
