@@ -197,6 +197,11 @@
             height: 100%;
         }
 
+        .tabla-entregas select {
+            text-align: left;
+            text-align-last: left;
+        }
+
         .tabla-entregas {
             min-width: 1400px;
         }
