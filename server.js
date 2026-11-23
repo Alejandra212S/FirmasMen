@@ -7,9 +7,18 @@ const path = require('path');
 const app = express();
 
 // Configuraciones del servidor express
-app.use(cors());
+const allowedOrigin = process.env.CORS_ORIGIN;
+app.use(cors(allowedOrigin ? {
+    origin: allowedOrigin.split(',').map((origin) => origin.trim()),
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type']
+} : undefined));
 app.use(express.json({ limit: '50mb' })); // Sel amplia el límite para soportar el tamaño de la firma en Base64
 app.use(express.static(path.join(__dirname)));
+
+app.get('/api/health', (_req, res) => {
+    res.status(200).json({ estado: 'activo' });
+});
 
 // Configuración de la conexión a SQL Server Express
 const dbConfig = {
@@ -108,7 +117,7 @@ app.post('/api/guardar-responsiva', async (req, res) => {
 
 
 // Levantar el servidor local en el puerto 3000
-const PUERTO = 3000;
-app.listen(PUERTO, () => {
-    console.log(` Servidor de Planta activo en http://localhost:${PUERTO}`);
+const PUERTO = Number(process.env.PORT) || 3000;
+app.listen(PUERTO, '0.0.0.0', () => {
+    console.log(` Servidor de Planta activo en el puerto ${PUERTO}`);
 });
