@@ -28,4 +28,17 @@ Aplicación web para registrar entregas de equipo de protección personal y guar
 
 Al escribir una nómina existente, el formulario consulta `dbo.Empleados` y completa nombre, fecha de ingreso, área y puesto. Si la nómina no existe, captura esos datos manualmente; se guardarán al registrar la primera entrega y se autocompletarán en futuras consultas.
 
+## Firmas en SQL Server
+
+Antes de cambiar el esquema, respalda `EnviosImagenesDB`. Después ejecuta `database.sql` en SQL Server Management Studio. El script agrega columnas `VARBINARY(MAX)`, convierte las firmas Base64 válidas existentes y conserva las cadenas antiguas que no pueda convertir. Reinicia Node.js antes de guardar nuevas entregas; desde entonces las firmas nuevas se guardan como binario.
+
+Puedes comprobar el almacenamiento con:
+
+```sql
+SELECT Id, DATALENGTH(FirmaRecibeBin) AS BytesFirmaRecibe,
+       DATALENGTH(FirmaEntregaBin) AS BytesFirmaEntrega
+FROM dbo.AsignacionesEPP
+ORDER BY Id DESC;
+```
+
 

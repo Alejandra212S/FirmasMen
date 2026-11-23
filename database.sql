@@ -111,12 +111,12 @@ GO
 USE EnviosImagenesDB;
 GO
 
--- 1. Buscar en qué tabla existe la columna UrlFirma
+--  Buscar en qué tabla existe la columna UrlFirma
 SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME 
 FROM INFORMATION_SCHEMA.COLUMNS 
 WHERE COLUMN_NAME LIKE '%Firma%';
 
--- 2. Revisar si hay algún Trigger en la tabla AsignacionesEPP
+-- Revisar si hay algún Trigger en la tabla AsignacionesEPP
 SELECT name AS NombreTrigger 
 FROM sys.triggers 
 WHERE parent_id = OBJECT_ID('dbo.AsignacionesEPP');
