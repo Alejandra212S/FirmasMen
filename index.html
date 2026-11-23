@@ -54,7 +54,10 @@
                     </thead>
                     <tbody>
                         <tr> <!-- Diseño de la tabla de datos del empleado -->
-                            <td><input name="nomina" aria-label="Número de nómina" autocomplete="off" required></td>
+                            <td>
+                                <input name="nomina" aria-label="Número de nómina" autocomplete="off" required>
+                                <small id="estadoNomina" aria-live="polite"></small>
+                            </td>
                             <td><input name="nombre" aria-label="Nombre completo" autocomplete="name" required></td>
                             <td><input name="fechaIngreso" aria-label="Fecha de ingreso" type="date" required></td>
                             <td><input name="area" aria-label="Área" required></td>
@@ -189,6 +192,7 @@
         const fechaIngresoInput = document.querySelector('[name="fechaIngreso"]');
         const areaInput = document.querySelector('[name="area"]');
         const puestoInput = document.querySelector('[name="puesto"]');
+        const estadoNomina = document.getElementById('estadoNomina');
         let buscarEmpleadoTemporizador;
 
         function limpiarDatosEmpleado() {
@@ -201,6 +205,7 @@
         nominaInput.addEventListener('input', () => {
             window.clearTimeout(buscarEmpleadoTemporizador);
             limpiarDatosEmpleado();
+            estadoNomina.textContent = '';
 
             const nomina = nominaInput.value.trim();
             if (!nomina) return;
@@ -208,7 +213,14 @@
             buscarEmpleadoTemporizador = window.setTimeout(async () => {
                 try {
                     const respuesta = await fetch(`/api/empleados/${encodeURIComponent(nomina)}`);
-                    if (!respuesta.ok) return;
+                    if (nominaInput.value.trim() !== nomina) return;
+                    if (respuesta.status === 404) {
+                        estadoNomina.textContent = 'Nómina nueva: captura los datos manualmente.';
+                        return;
+                    }
+                    if (!respuesta.ok) {
+                        throw new Error(`La consulta del empleado respondió ${respuesta.status}.`);
+                    }
 
                     const empleado = await respuesta.json();
                     if (nominaInput.value.trim() !== nomina) return;
@@ -219,8 +231,12 @@
                         : '';
                     areaInput.value = empleado.AreaPlanta || '';
                     puestoInput.value = empleado.Puesto || '';
+                    estadoNomina.textContent = 'Datos del empleado encontrados.';
                 } catch (error) {
                     console.error('No se pudieron consultar los datos del empleado:', error);
+                    if (nominaInput.value.trim() === nomina) {
+                        estadoNomina.textContent = 'No se pudieron consultar los datos. Revisa la conexión al servidor.';
+                    }
                 }
             }, 350);
         });
@@ -550,6 +566,7 @@
             const formatoOriginal = document.getElementById('formatoEntrega');
             const formato = formatoOriginal.cloneNode(true);
             formato.classList.add('formato');
+            formato.querySelector('#estadoNomina')?.remove();
             convertirControlesEnTexto(formatoOriginal, formato);
             formato.querySelectorAll('.boton-firma, .boton-quitar').forEach((boton) => boton.remove());
 

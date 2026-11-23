@@ -26,3 +26,5 @@ Aplicación web para registrar entregas de equipo de protección personal y guar
 
 6. Abre `http://localhost:3000`.
 
+Al escribir una nómina existente, el formulario consulta `dbo.Empleados` y completa nombre, fecha de ingreso, área y puesto. Si la nómina no existe, captura esos datos manualmente; se guardarán al registrar la primera entrega y se autocompletarán en futuras consultas.
+
