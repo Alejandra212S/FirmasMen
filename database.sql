@@ -125,4 +125,20 @@ SELECT COLUMN_NAME
 FROM INFORMATION_SCHEMA.COLUMNS
 WHERE TABLE_SCHEMA = N'dbo'
     AND TABLE_NAME = N'AsignacionesEPP'
-    AND COLUMN_NAME = N'FirmaEntrega';
+    AND COLUMN_NAME = N'FirmaEntrega'
+    AND COLUMN UrlFirma = N ;
+
+    SELECT
+    Id,
+    NombreRecibe,
+    CASE
+        WHEN FirmaRecibe LIKE 'data:image/png;base64,%' THEN 'Firma válida'
+        ELSE 'Firma faltante o inválida'
+    END AS EstadoFirmaRecibe,
+    NombreEntrega,
+    CASE
+        WHEN FirmaEntrega LIKE 'data:image/png;base64,%' THEN 'Firma válida'
+        ELSE 'Firma faltante o inválida'
+    END AS EstadoFirmaEntrega
+FROM dbo.AsignacionesEPP
+ORDER BY Id DESC;

@@ -172,7 +172,25 @@
         </tr>
     </template>
 
+    <script src="./config.js"></script>
     <script>
+        const API_BASE_URL = window.FIRMAS_API_URL || '';
+        const modoGitHubPages = window.location.hostname.endsWith('github.io');
+
+        function descargarResponsivaJson(empleado, equipos) {
+            const contenido = JSON.stringify({
+                empleado,
+                equipos,
+                fechaExportacion: new Date().toISOString()
+            }, null, 2);
+            const blob = new Blob([contenido], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const enlace = document.createElement('a');
+            enlace.href = url;
+            enlace.download = `responsiva-${empleado.nomina || 'empleado'}-${new Date().toISOString().slice(0, 10)}.json`;
+            enlace.click();
+            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
 
         //Definición de variables para las tablas de los equipos, la fila,el modal o ¿canva de la firmas 
 
@@ -619,12 +637,28 @@
                 };
             });
 
+            if (modoGitHubPages && !API_BASE_URL) {
+                descargarResponsivaJson(empleado, equipos);
+                window.alert('GitHub Pages es estático y no puede guardar en SQL Server. Se descargó un archivo JSON con los datos y las firmas.');
+                if (imprimir) {
+                    prepararFormatoParaImprimir(filasConEquipo);
+                    window.print();
+                }
+                return;
+            }
+
             try {
-                const respuesta = await fetch('/api/guardar-responsiva', {
+                const respuesta = await fetch(`${API_BASE_URL}/api/guardar-responsiva`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ empleado, equipos })
                 });
+
+                const tipoContenido = respuesta.headers.get('content-type') || '';
+                if (!tipoContenido.includes('application/json')) {
+                    throw new Error('La API no devolvió JSON. Verifica que el servidor Node.js esté funcionando.');
+                }
+
                 const resultado = await respuesta.json();
                 if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo guardar.');
                 if (imprimir) {
