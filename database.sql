@@ -142,3 +142,4 @@ WHERE TABLE_SCHEMA = N'dbo'
     END AS EstadoFirmaEntrega
 FROM dbo.AsignacionesEPP
 ORDER BY Id DESC;
+
