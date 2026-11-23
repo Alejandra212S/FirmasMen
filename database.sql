@@ -5,6 +5,7 @@ GO
 USE EnviosImagenesDB;
 GO
 
+-- 1. Crear o actualizar tabla Empleados
 IF OBJECT_ID(N'dbo.Empleados', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.Empleados (
@@ -30,6 +31,7 @@ IF COL_LENGTH(N'dbo.Empleados', N'Puesto') IS NULL
     ALTER TABLE dbo.Empleados ADD Puesto NVARCHAR(50) NULL;
 GO
 
+-- 2. Crear o actualizar tabla AsignacionesEPP
 IF OBJECT_ID(N'dbo.AsignacionesEPP', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.AsignacionesEPP (
@@ -51,6 +53,11 @@ BEGIN
             REFERENCES dbo.Empleados(Id)
     );
 END;
+GO
+
+-- Eliminar columna obsoleta UrlFirma que causaba el error 500
+IF COL_LENGTH(N'dbo.AsignacionesEPP', N'UrlFirma') IS NOT NULL
+    ALTER TABLE dbo.AsignacionesEPP DROP COLUMN UrlFirma;
 GO
 
 IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FechaEntrega') IS NULL
@@ -94,3 +101,28 @@ IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FechaRegistro') IS NULL
         ADD FechaRegistro DATETIME2 NOT NULL
             CONSTRAINT DF_Asignaciones_Fecha DEFAULT SYSUTCDATETIME();
 GO
+
+USE EnviosImagenesDB;
+GO
+
+ALTER TABLE dbo.AsignacionesEPP DROP COLUMN UrlFirma;
+GO
+
+USE EnviosImagenesDB;
+GO
+
+-- 1. Buscar en qué tabla existe la columna UrlFirma
+SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME 
+FROM INFORMATION_SCHEMA.COLUMNS 
+WHERE COLUMN_NAME LIKE '%Firma%';
+
+-- 2. Revisar si hay algún Trigger en la tabla AsignacionesEPP
+SELECT name AS NombreTrigger 
+FROM sys.triggers 
+WHERE parent_id = OBJECT_ID('dbo.AsignacionesEPP');
+
+SELECT COLUMN_NAME
+FROM INFORMATION_SCHEMA.COLUMNS
+WHERE TABLE_SCHEMA = N'dbo'
+    AND TABLE_NAME = N'AsignacionesEPP'
+    AND COLUMN_NAME = N'FirmaEntrega';

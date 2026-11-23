@@ -8,7 +8,7 @@ const app = express();
 
 // Configuraciones del servidor express
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Ampliamos el límite para soportar el tamaño de la firma en Base64
+app.use(express.json({ limit: '50mb' })); // Sel amplia el límite para soportar el tamaño de la firma en Base64
 app.use(express.static(path.join(__dirname)));
 
 // Configuración de la conexión a SQL Server Express
@@ -41,9 +41,10 @@ app.post('/api/guardar-responsiva', async (req, res) => {
         const resultadoEmpleado = await empleadoRequest
             .input('nomina', mssql.VarChar(20), empleado.nomina)
             .input('nombre', mssql.NVarChar(150), empleado.nombre)
-            .input('fechaIngreso', mssql.Date, empleado.fechaIngreso)
+            .input('fechaIngreso', mssql.Date, empleado.fechaIngreso || null)
             .input('area', mssql.NVarChar(50), empleado.area)
             .input('puesto', mssql.NVarChar(50), empleado.puesto)
+            
             .query(`
                 IF NOT EXISTS (SELECT 1 FROM dbo.Empleados WHERE Nomina = @nomina)
                 BEGIN
@@ -103,6 +104,8 @@ app.post('/api/guardar-responsiva', async (req, res) => {
         res.status(500).json({ error: 'Error en SQL Server: ' + error.message });
     }
 });
+
+
 
 // Levantar el servidor local en el puerto 3000
 const PUERTO = 3000;
