@@ -7,17 +7,44 @@ const path = require('path');
 const app = express();
 
 // Configuraciones del servidor express
-const allowedOrigin = process.env.CORS_ORIGIN;
-app.use(cors(allowedOrigin ? {
-    origin: allowedOrigin.split(',').map((origin) => origin.trim()),
-    methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type']
-} : undefined));
+app.use(cors());
 app.use(express.json({ limit: '50mb' })); // Sel amplia el límite para soportar el tamaño de la firma en Base64
 app.use(express.static(path.join(__dirname)));
 
 app.get('/api/health', (_req, res) => {
     res.status(200).json({ estado: 'activo' });
+});
+
+app.get('/api/empleados/:nomina', async (req, res) => {
+    try {
+        const nomina = String(req.params.nomina || '').trim();
+        if (!nomina) {
+            return res.status(400).json({ error: 'La nómina es obligatoria.' });
+        }
+
+        const pool = await mssql.connect(dbConfig);
+        const resultado = await new mssql.Request(pool)
+            .input('nomina', mssql.VarChar(20), nomina)
+            .query(`
+                SELECT TOP 1
+                    Nomina,
+                    NombreCompleto,
+                    FechaIngreso,
+                    AreaPlanta,
+                    Puesto
+                FROM dbo.Empleados
+                WHERE Nomina = @nomina
+            `);
+
+        if (resultado.recordset.length === 0) {
+            return res.status(404).json({ error: 'No existe un empleado con esa nómina.' });
+        }
+
+        res.status(200).json(resultado.recordset[0]);
+    } catch (error) {
+        console.error('Error consultando empleado:', error);
+        res.status(500).json({ error: 'Error consultando SQL Server: ' + error.message });
+    }
 });
 
 // Configuración de la conexión a SQL Server Express

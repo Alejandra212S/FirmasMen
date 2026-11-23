@@ -172,26 +172,7 @@
         </tr>
     </template>
 
-    <script src="./config.js"></script>
     <script>
-        const API_BASE_URL = window.FIRMAS_API_URL || '';
-        const modoGitHubPages = window.location.hostname.endsWith('github.io');
-
-        function descargarResponsivaJson(empleado, equipos) {
-            const contenido = JSON.stringify({
-                empleado,
-                equipos,
-                fechaExportacion: new Date().toISOString()
-            }, null, 2);
-            const blob = new Blob([contenido], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const enlace = document.createElement('a');
-            enlace.href = url;
-            enlace.download = `responsiva-${empleado.nomina || 'empleado'}-${new Date().toISOString().slice(0, 10)}.json`;
-            enlace.click();
-            window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }
-
         //Definición de variables para las tablas de los equipos, la fila,el modal o ¿canva de la firmas 
 
         const filasEquipo = document.getElementById('filasEquipo');
@@ -202,6 +183,48 @@
         let celdaFirmaActiva = null;
         let dibujando = false;
         let firmaTrazada = false;
+
+        const nominaInput = document.querySelector('[name="nomina"]');
+        const nombreInput = document.querySelector('[name="nombre"]');
+        const fechaIngresoInput = document.querySelector('[name="fechaIngreso"]');
+        const areaInput = document.querySelector('[name="area"]');
+        const puestoInput = document.querySelector('[name="puesto"]');
+        let buscarEmpleadoTemporizador;
+
+        function limpiarDatosEmpleado() {
+            nombreInput.value = '';
+            fechaIngresoInput.value = '';
+            areaInput.value = '';
+            puestoInput.value = '';
+        }
+
+        nominaInput.addEventListener('input', () => {
+            window.clearTimeout(buscarEmpleadoTemporizador);
+            limpiarDatosEmpleado();
+
+            const nomina = nominaInput.value.trim();
+            if (!nomina) return;
+
+            buscarEmpleadoTemporizador = window.setTimeout(async () => {
+                try {
+                    const respuesta = await fetch(`/api/empleados/${encodeURIComponent(nomina)}`);
+                    if (!respuesta.ok) return;
+
+                    const empleado = await respuesta.json();
+                    if (nominaInput.value.trim() !== nomina) return;
+
+                    nombreInput.value = empleado.NombreCompleto || '';
+                    fechaIngresoInput.value = empleado.FechaIngreso
+                        ? String(empleado.FechaIngreso).slice(0, 10)
+                        : '';
+                    areaInput.value = empleado.AreaPlanta || '';
+                    puestoInput.value = empleado.Puesto || '';
+                } catch (error) {
+                    console.error('No se pudieron consultar los datos del empleado:', error);
+                }
+            }, 350);
+        });
+
         //Definición de catalogos de equipos que se tienen dentro de la empresa, se definen por región atomatica, unidad de medida (par o pieza y los productos que se tienen dentro de cada region)
 
         const catalogo = [
@@ -432,7 +455,7 @@
         }
 
         contextoFirma.strokeStyle = '#111';
-        contextoFirma.lineWidth = 5;
+        contextoFirma.lineWidth = 9;
         contextoFirma.lineCap = 'round';
         contextoFirma.lineJoin = 'round';
 
@@ -590,22 +613,37 @@
 
             for (const [indice, fila] of filasConEquipo.entries()) {
                 const campos = [
-                    fila.querySelector('.fecha-entrega').value,
-                    fila.querySelector('.region-equipo').value,
-                    fila.querySelector('.descripcion-equipo').value,
-                    fila.querySelector('.talla-equipo').value,
-                    fila.querySelector('.unidad-equipo').value,
-                    fila.querySelector('.cantidad-equipo').value,
-                    fila.querySelector('.motivo-entrega').value
+                    ['fecha de entrega', fila.querySelector('.fecha-entrega').value],
+                    ['región anatómica', fila.querySelector('.region-equipo').value],
+                    ['descripción del equipo', fila.querySelector('.descripcion-equipo').value],
+                    ['talla', fila.querySelector('.talla-equipo').value],
+                    ['unidad', fila.querySelector('.unidad-equipo').value],
+                    ['cantidad', fila.querySelector('.cantidad-equipo').value],
+                    ['motivo de entrega', fila.querySelector('.motivo-entrega').value]
                 ];
-                const firmas = [...fila.querySelectorAll('.celda-firma')];
-                const firmasCompletas = firmas.every((celda) => (
-                    celda.querySelector('.nombre-firma').value.trim()
-                    && celda.querySelector('.firma-imagen')
-                ));
 
-                if (campos.some((valor) => !valor) || !firmasCompletas) {
-                    window.alert(`Completa la fecha, región, descripción, talla, unidad, cantidad, motivo, nombres y ambas firmas del equipo en el renglón ${indice + 1}.`);
+                const faltantes = campos
+                    .filter(([, valor]) => !String(valor).trim())
+                    .map(([nombre]) => nombre);
+
+                const recibido = fila.querySelector('[data-tipo-firma="recibido"]');
+                const entregado = fila.querySelector('[data-tipo-firma="entregado"]');
+
+                if (!recibido.querySelector('.nombre-firma').value.trim()) {
+                    faltantes.push('nombre de quien recibe');
+                }
+                if (!recibido.querySelector('.firma-imagen')) {
+                    faltantes.push('firma de quien recibe');
+                }
+                if (!entregado.querySelector('.nombre-firma').value.trim()) {
+                    faltantes.push('nombre de quien entrega');
+                }
+                if (!entregado.querySelector('.firma-imagen')) {
+                    faltantes.push('firma de quien entrega');
+                }
+
+                if (faltantes.length > 0) {
+                    window.alert(`En el renglón ${indice + 1} faltan: ${faltantes.join(', ')}.`);
                     return;
                 }
             }
@@ -637,28 +675,12 @@
                 };
             });
 
-            if (modoGitHubPages && !API_BASE_URL) {
-                descargarResponsivaJson(empleado, equipos);
-                window.alert('GitHub Pages es estático y no puede guardar en SQL Server. Se descargó un archivo JSON con los datos y las firmas.');
-                if (imprimir) {
-                    prepararFormatoParaImprimir(filasConEquipo);
-                    window.print();
-                }
-                return;
-            }
-
             try {
-                const respuesta = await fetch(`${API_BASE_URL}/api/guardar-responsiva`, {
+                const respuesta = await fetch('/api/guardar-responsiva', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ empleado, equipos })
                 });
-
-                const tipoContenido = respuesta.headers.get('content-type') || '';
-                if (!tipoContenido.includes('application/json')) {
-                    throw new Error('La API no devolvió JSON. Verifica que el servidor Node.js esté funcionando.');
-                }
-
                 const resultado = await respuesta.json();
                 if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo guardar.');
                 if (imprimir) {
