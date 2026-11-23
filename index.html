@@ -233,7 +233,7 @@
                     puestoInput.value = empleado.Puesto || '';
                     estadoNomina.textContent = 'Datos del empleado encontrados.';
                 } catch (error) {
-                    console.error('No se pudieron consultar los datos del empleado:', error);
+                    console.error('No se pudieron consultar los datos de los empleados:', error);
                     if (nominaInput.value.trim() === nomina) {
                         estadoNomina.textContent = 'No se pudieron consultar los datos. Revisa la conexión al servidor.';
                     }
