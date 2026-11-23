@@ -13,7 +13,7 @@
 
              <!-- Botonos principales -->
             <button class="boton-secundario" id="agregarFila" type="button">Agregar equipo</button>
-            <button class="boton-secundario" id="guardarFormato" type="button">Guardar en base de datos</button>
+            <button class="boton-secundario" id="guardarFormato" type="button">Guardar</button>
             <button class="boton-principal" id="imprimirFormato" type="button">Validar e imprimir / guardar PDF</button>
         </div>
 
@@ -98,8 +98,8 @@
             </div>
              <!-- Footer o pie de pagina que indica  el formato digital y las firmas que se capturan  -->
             <footer class="pie-formato">
-                <span>Formato digital de entrega de equipo de protección personal.</span>
-                <span>Las firmas se capturan por cada equipo entregado.</span>
+                <span>Fecha de revisión  29.09.2025.</span>
+                <span>Pag.1 de 1 Pag (s).</span>
             </footer>
         </form>
     </main>
@@ -112,6 +112,8 @@
         <section class="modal-contenido">
             <h2 id="tituloFirma">Firma digital</h2>
             <p>Dibuja la firma en el recuadro. La firma se agregará al renglón del equipo seleccionado.</p>
+
+            <!--Gruesor de el lapiz para dibujar la firma que se requiere-->
             <canvas id="canvasFirma" width="1000" height="380" aria-label="Área para dibujar la firma"></canvas>
             <div class="modal-acciones">
                 <button class="boton-secundario" id="limpiarFirma" type="button">Limpiar</button>
@@ -173,6 +175,7 @@
     <script>
 
         //Definición de variables para las tablas de los equipos, la fila,el modal o ¿canva de la firmas 
+
         const filasEquipo = document.getElementById('filasEquipo');
         const plantillaFila = document.getElementById('plantillaFila');
         const modalFirma = document.getElementById('modalFirma');
@@ -395,12 +398,13 @@
             modalFirma.hidden = false;
             document.getElementById('limpiarFirma').focus();
         }
+        //Función para cerrar la firma 
 
         function cerrarFirma() {
             modalFirma.hidden = true;
             celdaFirmaActiva = null;
         }
-
+        //Se obtienen las coordenadas del recuadro que se abrio para agregar la firma
         function coordenadas(evento) {
             const rectangulo = canvasFirma.getBoundingClientRect();
             return {
