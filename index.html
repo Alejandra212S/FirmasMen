@@ -182,7 +182,7 @@
         </tr>
     </template>
 
-    <script>
+    <script type="module">
         //Definición de variables para las tablas de los equipos, la fila,el modal o ¿canva de la firmas 
 
         const filasEquipo = document.getElementById('filasEquipo');
@@ -659,20 +659,23 @@
 
         document.getElementById('cancelarFirma').addEventListener('click', cerrarFirma);
 
-        document.getElementById('guardarFirma').addEventListener('click', () => {
-            if (!firmaTrazada || !celdaFirmaActiva) {
-                window.alert('Dibuja la firma antes de guardarla.');
-                return;
-            }
+      document.getElementById('guardarFirma').addEventListener('click', () => {
+    if (!firmaTrazada || !celdaFirmaActiva) {
+        window.alert('Dibuja la firma antes de guardarla.');
+        return;
+    }
 
-            const contenido = celdaFirmaActiva.querySelector('.firma-contenido');
-            const imagen = document.createElement('img');
-            imagen.className = 'firma-imagen';
-            imagen.alt = 'Firma digital capturada';
-            imagen.src = canvasFirma.toDataURL('image/png');
-            contenido.replaceChildren(imagen);
-            cerrarFirma();
-        });
+    const contenido = celdaFirmaActiva.querySelector('.firma-contenido');
+    const imagen = document.createElement('img');
+    imagen.className = 'firma-imagen';
+    imagen.alt = 'Firma digital capturada';
+
+    // Comprime la firma para Firebase
+    imagen.src = canvasFirma.toDataURL('image/jpeg', 0.7);
+
+    contenido.replaceChildren(imagen);
+    cerrarFirma();
+});
 
         filasEquipo.addEventListener('click', (evento) => {
             const boton = evento.target.closest('button');
