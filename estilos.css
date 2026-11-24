@@ -326,12 +326,81 @@
 
         @media screen and (max-width: 1453px) {
             body {
-                overflow-x: auto;
+                padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
             }
 
             .pagina {
-                width: 1454px;
-                margin: 0;
+                width: 100%;
+            }
+
+            .barra-acciones {
+                flex-wrap: wrap;
+            }
+
+            .formato {
+                padding: 16px 10px;
+            }
+
+            .encabezado {
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 8px;
+            }
+
+            .titulo-formato {
+                grid-column: 1 / -1;
+                grid-row: 2;
+            }
+
+            .logo-menshen {
+                grid-column: 2;
+                grid-row: 1;
+                width: min(140px, 32vw);
+            }
+
+            .empresa {
+                font-size: 0.76rem;
+                overflow-wrap: anywhere;
+            }
+
+            .declaracion {
+                padding: 10px;
+                font-size: 0.78rem;
+            }
+
+            .tabla-contenedor {
+                overflow-x: auto;
+            }
+
+            .datos-empleado {
+                min-width: 760px;
+            }
+
+            .datos-empleado input,
+            .tabla-entregas input,
+            .tabla-entregas select {
+                min-height: 44px;
+                font-size: 16px;
+            }
+
+            .pie-formato {
+                flex-wrap: wrap;
+                gap: 6px 14px;
+            }
+        }
+
+        @media screen and (max-width: 480px) {
+            .barra-acciones {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            #imprimirFormato {
+                grid-column: 1 / -1;
+            }
+
+            .datos-empleado {
+                min-width: 760px;
             }
         }
 
