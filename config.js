@@ -1,0 +1,36 @@
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js';
+import { getAuth } from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js';
+import {
+    collection,
+    doc,
+    getDoc,
+    initializeFirestore,
+    persistentLocalCache,
+    persistentSingleTabManager,
+    serverTimestamp,
+    writeBatch
+} from 'https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js';
+
+const firebaseConfig = {
+    apiKey: 'AIzaSyAbTf0MOJ2EvCMTB5V4JRgDQ3zQ3F50GTg',
+    authDomain: 'proyectoequipoproteccion.firebaseapp.com',
+    projectId: 'proyectoequipoproteccion',
+    storageBucket: 'proyectoequipoproteccion.firebasestorage.app',
+    messagingSenderId: '173810670929',
+    appId: '1:173810670929:web:1f2c0512387ac0530d0770',
+};
+
+export const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager()
+    })
+});
+export {
+    collection,
+    doc,
+    getDoc,
+    serverTimestamp,
+    writeBatch
+};

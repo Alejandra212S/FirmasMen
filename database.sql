@@ -1,16 +1,21 @@
 IF DB_ID(N'EnviosImagenesDB') IS NULL
-    CREATE DATABASE EnviosImagenesDB;
+BEGIN
+    EXEC(N'CREATE DATABASE [EnviosImagenesDB]');
+END;
 GO
 
-USE EnviosImagenesDB;
+USE [EnviosImagenesDB];
 GO
 
--- 1. Crear o actualizar tabla Empleados
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF OBJECT_ID(N'dbo.Empleados', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.Empleados (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
-        Nomina VARCHAR(20) NOT NULL UNIQUE,
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Empleados PRIMARY KEY,
+        Nomina VARCHAR(20) NOT NULL CONSTRAINT UQ_Empleados_Nomina UNIQUE,
         NombreCompleto NVARCHAR(150) NOT NULL,
         FechaIngreso DATE NULL,
         AreaPlanta NVARCHAR(50) NULL,
@@ -31,11 +36,10 @@ IF COL_LENGTH(N'dbo.Empleados', N'Puesto') IS NULL
     ALTER TABLE dbo.Empleados ADD Puesto NVARCHAR(50) NULL;
 GO
 
--- 2. Crear o actualizar tabla AsignacionesEPP
 IF OBJECT_ID(N'dbo.AsignacionesEPP', N'U') IS NULL
 BEGIN
     CREATE TABLE dbo.AsignacionesEPP (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_AsignacionesEPP PRIMARY KEY,
         EmpleadoId INT NOT NULL,
         FechaEntrega DATE NOT NULL,
         RegionAnatomica NVARCHAR(100) NOT NULL,
@@ -45,19 +49,20 @@ BEGIN
         Cantidad INT NOT NULL,
         MotivoEntrega NVARCHAR(100) NULL,
         NombreRecibe NVARCHAR(150) NOT NULL,
-        FirmaRecibe VARCHAR(MAX) NOT NULL,
+        FirmaRecibeBin VARBINARY(MAX) NOT NULL,
         NombreEntrega NVARCHAR(150) NOT NULL,
-        FirmaEntrega VARCHAR(MAX) NOT NULL,
-        FechaRegistro DATETIME2 NOT NULL CONSTRAINT DF_Asignaciones_Fecha DEFAULT SYSUTCDATETIME(),
-        CONSTRAINT FK_Asignaciones_Empleado FOREIGN KEY (EmpleadoId)
+        FirmaEntregaBin VARBINARY(MAX) NOT NULL,
+        FechaRegistro DATETIME2 NOT NULL
+            CONSTRAINT DF_AsignacionesEPP_FechaRegistro DEFAULT SYSUTCDATETIME(),
+        CONSTRAINT FK_AsignacionesEPP_Empleados FOREIGN KEY (EmpleadoId)
             REFERENCES dbo.Empleados(Id)
     );
 END;
 GO
 
--- Eliminar columna obsoleta UrlFirma que causaba el error 500
-IF COL_LENGTH(N'dbo.AsignacionesEPP', N'UrlFirma') IS NOT NULL
-    ALTER TABLE dbo.AsignacionesEPP DROP COLUMN UrlFirma;
+-- Add columns required by the current application without deleting legacy records.
+IF COL_LENGTH(N'dbo.AsignacionesEPP', N'EmpleadoId') IS NULL
+    ALTER TABLE dbo.AsignacionesEPP ADD EmpleadoId INT NULL;
 GO
 
 IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FechaEntrega') IS NULL
@@ -66,6 +71,14 @@ GO
 
 IF COL_LENGTH(N'dbo.AsignacionesEPP', N'RegionAnatomica') IS NULL
     ALTER TABLE dbo.AsignacionesEPP ADD RegionAnatomica NVARCHAR(100) NULL;
+GO
+
+IF COL_LENGTH(N'dbo.AsignacionesEPP', N'ArticuloEntregado') IS NULL
+    ALTER TABLE dbo.AsignacionesEPP ADD ArticuloEntregado NVARCHAR(150) NULL;
+GO
+
+IF COL_LENGTH(N'dbo.AsignacionesEPP', N'Talla') IS NULL
+    ALTER TABLE dbo.AsignacionesEPP ADD Talla NVARCHAR(20) NULL;
 GO
 
 IF COL_LENGTH(N'dbo.AsignacionesEPP', N'Unidad') IS NULL
@@ -84,62 +97,67 @@ IF COL_LENGTH(N'dbo.AsignacionesEPP', N'NombreRecibe') IS NULL
     ALTER TABLE dbo.AsignacionesEPP ADD NombreRecibe NVARCHAR(150) NULL;
 GO
 
-IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FirmaRecibe') IS NULL
-    ALTER TABLE dbo.AsignacionesEPP ADD FirmaRecibe VARCHAR(MAX) NULL;
+IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FirmaRecibeBin') IS NULL
+    ALTER TABLE dbo.AsignacionesEPP ADD FirmaRecibeBin VARBINARY(MAX) NULL;
 GO
 
 IF COL_LENGTH(N'dbo.AsignacionesEPP', N'NombreEntrega') IS NULL
     ALTER TABLE dbo.AsignacionesEPP ADD NombreEntrega NVARCHAR(150) NULL;
 GO
 
-IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FirmaEntrega') IS NULL
-    ALTER TABLE dbo.AsignacionesEPP ADD FirmaEntrega VARCHAR(MAX) NULL;
+IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FirmaEntregaBin') IS NULL
+    ALTER TABLE dbo.AsignacionesEPP ADD FirmaEntregaBin VARBINARY(MAX) NULL;
 GO
 
 IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FechaRegistro') IS NULL
+BEGIN
     ALTER TABLE dbo.AsignacionesEPP
         ADD FechaRegistro DATETIME2 NOT NULL
-            CONSTRAINT DF_Asignaciones_Fecha DEFAULT SYSUTCDATETIME();
+            CONSTRAINT DF_AsignacionesEPP_FechaRegistro DEFAULT SYSUTCDATETIME();
+END;
 GO
 
-USE EnviosImagenesDB;
+-- Legacy signature columns remain intact; defaults allow new binary-signature inserts.
+IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FirmaRecibe') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.default_constraints AS dc
+       INNER JOIN sys.columns AS c
+           ON c.object_id = dc.parent_object_id
+          AND c.column_id = dc.parent_column_id
+       WHERE dc.parent_object_id = OBJECT_ID(N'dbo.AsignacionesEPP')
+         AND c.name = N'FirmaRecibe'
+   )
+BEGIN
+    ALTER TABLE dbo.AsignacionesEPP
+        ADD CONSTRAINT DF_AsignacionesEPP_FirmaRecibe DEFAULT ('') FOR FirmaRecibe;
+END;
 GO
 
-ALTER TABLE dbo.AsignacionesEPP DROP COLUMN UrlFirma;
+IF COL_LENGTH(N'dbo.AsignacionesEPP', N'FirmaEntrega') IS NOT NULL
+   AND NOT EXISTS (
+       SELECT 1
+       FROM sys.default_constraints AS dc
+       INNER JOIN sys.columns AS c
+           ON c.object_id = dc.parent_object_id
+          AND c.column_id = dc.parent_column_id
+       WHERE dc.parent_object_id = OBJECT_ID(N'dbo.AsignacionesEPP')
+         AND c.name = N'FirmaEntrega'
+   )
+BEGIN
+    ALTER TABLE dbo.AsignacionesEPP
+        ADD CONSTRAINT DF_AsignacionesEPP_FirmaEntrega DEFAULT ('') FOR FirmaEntrega;
+END;
 GO
 
-USE EnviosImagenesDB;
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.indexes
+    WHERE object_id = OBJECT_ID(N'dbo.AsignacionesEPP')
+      AND name = N'IX_AsignacionesEPP_EmpleadoId_FechaEntrega'
+)
+BEGIN
+    CREATE INDEX IX_AsignacionesEPP_EmpleadoId_FechaEntrega
+        ON dbo.AsignacionesEPP (EmpleadoId, FechaEntrega);
+END;
 GO
-
---  Buscar en qué tabla existe la columna UrlFirma
-SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME 
-FROM INFORMATION_SCHEMA.COLUMNS 
-WHERE COLUMN_NAME LIKE '%Firma%';
-
--- Revisar si hay algún Trigger en la tabla AsignacionesEPP
-SELECT name AS NombreTrigger 
-FROM sys.triggers 
-WHERE parent_id = OBJECT_ID('dbo.AsignacionesEPP');
-
-SELECT COLUMN_NAME
-FROM INFORMATION_SCHEMA.COLUMNS
-WHERE TABLE_SCHEMA = N'dbo'
-    AND TABLE_NAME = N'AsignacionesEPP'
-    AND COLUMN_NAME = N'FirmaEntrega'
-    AND COLUMN UrlFirma = N ;
-
-    SELECT
-    Id,
-    NombreRecibe,
-    CASE
-        WHEN FirmaRecibe LIKE 'data:image/png;base64,%' THEN 'Firma válida'
-        ELSE 'Firma faltante o inválida'
-    END AS EstadoFirmaRecibe,
-    NombreEntrega,
-    CASE
-        WHEN FirmaEntrega LIKE 'data:image/png;base64,%' THEN 'Firma válida'
-        ELSE 'Firma faltante o inválida'
-    END AS EstadoFirmaEntrega
-FROM dbo.AsignacionesEPP
-ORDER BY Id DESC;
-

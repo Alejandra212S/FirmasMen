@@ -1,0 +1,26 @@
+{
+  "id": "./",
+  "name": "Entrega de equipo MENSHEN",
+  "short_name": "Firmas MENSHEN",
+  "description": "Registro local de entrega de equipo de protección personal.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#003d57",
+  "icons": [
+    {
+      "src": "./assets/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./assets/app-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

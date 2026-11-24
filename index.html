@@ -3,7 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <!-- Titulo de pagina  -->
+    <meta name="theme-color" content="#003d57">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Firmas MENSHEN">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="apple-touch-icon" href="./assets/app-icon.png">
     <title>Entrega de equipo de protección personal | MENSHEN</title> 
     <link rel="stylesheet" href="estilos.css">
 </head>
@@ -14,7 +19,10 @@
              <!-- Botonos principales -->
             <button class="boton-secundario" id="agregarFila" type="button">Agregar equipo</button>
             <button class="boton-secundario" id="guardarFormato" type="button">Guardar</button>
+            <button class="boton-secundario" id="exportarDatos" type="button">Exportar respaldo</button>
+            <button class="boton-secundario" id="importarDatosBoton" type="button">Importar respaldo</button>
             <button class="boton-principal" id="imprimirFormato" type="button">Validar e imprimir / guardar PDF</button>
+            <input id="importarDatosArchivo" type="file" accept=".json,application/json" hidden>
         </div>
          <!-- Inicio de formato -->
         <form class="formato" id="formatoEntrega">
@@ -25,7 +33,7 @@
                 </div>
                  <!-- ítulo de formato como fue entregado  -->
                 <h1 class="titulo-formato">Entrega de equipo de protección personal e instrucciones de uso, cuidado y limpieza <br> </h1>
-                <img class="logo-menshen" src="https://assets.stauff.com/binaries/threetotwo/content/gallery/stauff/de/55-logos/menshen-logo.jpg?width=560" alt="Logo de MENSHEN">
+                <img class="logo-menshen" src="./assets/menshen-logo.jpg" alt="Logo de MENSHEN">
             </header>
              <!-- definición de la funcion class para mostrar la ubicación de la empresa -->
 
@@ -193,6 +201,138 @@
         const puestoInput = document.querySelector('[name="puesto"]');
         const estadoNomina = document.getElementById('estadoNomina');
         let buscarEmpleadoTemporizador;
+        let clienteFirebasePromise;
+        let clienteFirebase;
+
+        const DB_NOMBRE = 'FirmasMENSHENLocal';
+        const DB_VERSION = 1;
+
+        function abrirBaseLocal() {
+            return new Promise((resolve, reject) => {
+                if (!window.indexedDB) {
+                    reject(new Error('Este navegador no permite guardar datos locales.'));
+                    return;
+                }
+
+                const solicitud = window.indexedDB.open(DB_NOMBRE, DB_VERSION);
+                solicitud.onupgradeneeded = () => {
+                    const db = solicitud.result;
+                    if (!db.objectStoreNames.contains('empleados')) {
+                        db.createObjectStore('empleados', { keyPath: 'nomina' });
+                    }
+                    if (!db.objectStoreNames.contains('responsivas')) {
+                        db.createObjectStore('responsivas', { keyPath: 'id', autoIncrement: true });
+                    }
+                };
+                solicitud.onsuccess = () => resolve(solicitud.result);
+                solicitud.onerror = () => reject(solicitud.error || new Error('No se pudo abrir la base local.'));
+            });
+        }
+
+        async function buscarEmpleadoLocal(nomina) {
+            const db = await abrirBaseLocal();
+            return new Promise((resolve, reject) => {
+                const solicitud = db.transaction('empleados', 'readonly')
+                    .objectStore('empleados')
+                    .get(nomina);
+                solicitud.onsuccess = () => {
+                    db.close();
+                    resolve(solicitud.result || null);
+                };
+                solicitud.onerror = () => {
+                    db.close();
+                    reject(solicitud.error || new Error('No se pudo consultar la nómina.'));
+                };
+            });
+        }
+
+        async function guardarResponsivaLocal(registro) {
+            const db = await abrirBaseLocal();
+            return new Promise((resolve, reject) => {
+                const transaccion = db.transaction(['empleados', 'responsivas'], 'readwrite');
+                transaccion.objectStore('empleados').put(registro.empleado);
+                transaccion.objectStore('responsivas').add({
+                    ...registro,
+                    guardadoEn: new Date().toISOString()
+                });
+                transaccion.oncomplete = () => {
+                    db.close();
+                    resolve();
+                };
+                transaccion.onerror = () => {
+                    db.close();
+                    reject(transaccion.error || new Error('No se pudo guardar la responsiva.'));
+                };
+                transaccion.onabort = () => {
+                    db.close();
+                    reject(transaccion.error || new Error('Se canceló el guardado local.'));
+                };
+            });
+        }
+
+        function cargarClienteFirebase() {
+            if (!clienteFirebasePromise) {
+                clienteFirebasePromise = import('./config.js')
+                    .then((cliente) => {
+                        clienteFirebase = cliente;
+                        return cliente;
+                    })
+                    .catch((error) => {
+                        clienteFirebasePromise = null;
+                        throw error;
+                    });
+            }
+            return clienteFirebasePromise;
+        }
+
+        async function buscarEmpleadoFirebase(nomina) {
+            const cliente = await cargarClienteFirebase();
+            const referencia = cliente.doc(cliente.db, 'empleados', encodeURIComponent(nomina));
+            const resultado = await cliente.getDoc(referencia);
+            return resultado.exists() ? resultado.data() : null;
+        }
+
+        async function guardarResponsivaFirebase(registro) {
+            if (registro.equipos.length > 498) {
+                throw new Error('No se pueden sincronizar más de 498 equipos en una sola responsiva.');
+            }
+
+            const cliente = await cargarClienteFirebase();
+            const batch = cliente.writeBatch(cliente.db);
+            const empleadoRef = cliente.doc(
+                cliente.db,
+                'empleados',
+                encodeURIComponent(registro.empleado.nomina)
+            );
+            batch.set(empleadoRef, {
+                ...registro.empleado,
+                actualizadoEn: cliente.serverTimestamp()
+            });
+
+            const responsivaRef = cliente.doc(
+                cliente.collection(cliente.db, 'responsivas')
+            );
+            batch.set(responsivaRef, {
+                empleado: registro.empleado,
+                nomina: registro.empleado.nomina,
+                numeroEquipos: registro.equipos.length,
+                creadoEn: cliente.serverTimestamp()
+            });
+
+            registro.equipos.forEach((equipo, indice) => {
+                if (equipo.firmaRecibe.length + equipo.firmaEntrega.length > 700000) {
+                    throw new Error(`Las firmas del equipo ${indice + 1} son demasiado grandes para Firestore.`);
+                }
+
+                const equipoRef = cliente.doc(
+                    cliente.collection(responsivaRef, 'equipos'),
+                    String(indice + 1)
+                );
+                batch.set(equipoRef, equipo);
+            });
+
+            await batch.commit();
+        }
 
         function limpiarDatosEmpleado() {
             nombreInput.value = '';
@@ -211,33 +351,42 @@
 
             buscarEmpleadoTemporizador = window.setTimeout(async () => {
                 try {
-                    const respuesta = await fetch(`/api/empleados/${encodeURIComponent(nomina)}`);
+                    let empleado = null;
+                    let origen = '';
+                    let errorFirebase = false;
+                    if (navigator.onLine) {
+                        try {
+                            empleado = await buscarEmpleadoFirebase(nomina);
+                            if (empleado) origen = 'Firestore';
+                        } catch (error) {
+                            errorFirebase = true;
+                            console.error('No se pudo consultar el empleado en Firestore:', error);
+                        }
+                    }
+                    if (!empleado) {
+                        empleado = await buscarEmpleadoLocal(nomina);
+                        if (empleado) origen = 'este dispositivo';
+                    }
+
                     if (nominaInput.value.trim() !== nomina) return;
-                    if (respuesta.status === 404) {
-                        estadoNomina.textContent = 'Nómina nueva: captura los datos manualmente.';
+                    if (!empleado) {
+                        estadoNomina.textContent = errorFirebase
+                            ? 'No se pudo consultar Firebase; captura los datos manualmente.'
+                            : 'Nómina nueva: captura los datos manualmente.';
                         return;
                     }
-                    if (!respuesta.ok) {
-                        throw new Error(`La consulta del empleado respondió ${respuesta.status}.`);
-                    }
 
-                    const empleado = await respuesta.json();
-                    if (nominaInput.value.trim() !== nomina) return;
-
-                    nombreInput.value = empleado.NombreCompleto || '';
-                    fechaIngresoInput.value = empleado.FechaIngreso
-                        ? String(empleado.FechaIngreso).slice(0, 10)
-                        : '';
-                    areaInput.value = empleado.AreaPlanta || '';
-                    puestoInput.value = empleado.Puesto || '';
-                    estadoNomina.textContent = 'Datos del empleado encontrados.';
+                    nombreInput.value = empleado.nombre || '';
+                    fechaIngresoInput.value = empleado.fechaIngreso || '';
+                    areaInput.value = empleado.area || '';
+                    puestoInput.value = empleado.puesto || '';
+                    estadoNomina.textContent = `Datos encontrados en ${origen}.`;
                 } catch (error) {
-                    console.error('No se pudieron consultar los datos de los empleados:', error);
+                    console.error('No se pudieron consultar los datos locales:', error);
                     if (nominaInput.value.trim() === nomina) {
-                        estadoNomina.textContent = 'No se pudieron consultar los datos. Revisa la conexión al servidor.';
+                        estadoNomina.textContent = error.message || 'No se pudo consultar la base local.';
                     }
                 }
-                
             }, 350);
         });
 
@@ -693,21 +842,34 @@
             });
 
             try {
-                const respuesta = await fetch('/api/guardar-responsiva', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ empleado, equipos })
-                });
-                const resultado = await respuesta.json();
-                if (!respuesta.ok) throw new Error(resultado.error || 'No se pudo guardar.');
+                const registro = { empleado, equipos };
+                await guardarResponsivaLocal(registro);
+                let resultadoGuardado = 'Datos guardados en este dispositivo.';
+
+                if (navigator.onLine) {
+                    try {
+                        await guardarResponsivaFirebase(registro);
+                        resultadoGuardado = 'Datos guardados correctamente en Firestore.';
+                    } catch (error) {
+                        console.error('No se pudo guardar la responsiva en Firestore:', error);
+                        resultadoGuardado = `Se guardó en este dispositivo, pero Firestore rechazó el registro: ${error.message}`;
+                    }
+                } else {
+                    resultadoGuardado = 'Sin conexión: los datos se guardaron solo en este dispositivo.';
+                }
+
                 if (imprimir) {
+                    if (!resultadoGuardado.includes('correctamente en Firestore')) {
+                        window.alert(resultadoGuardado);
+                    }
                     prepararFormatoParaImprimir(filasConEquipo);
                     window.print();
                 } else {
-                    window.alert(resultado.mensaje || 'Datos guardados correctamente.');
+                    window.alert(resultadoGuardado);
                 }
             } catch (error) {
-                window.alert(error.message);
+                console.error('No se pudo guardar la responsiva local:', error);
+                window.alert(error.message || 'No se pudo guardar en este iPad.');
             }
         }
 
@@ -719,8 +881,91 @@
             guardarResponsiva(true);
         });
 
+        document.getElementById('exportarDatos').addEventListener('click', async () => {
+            let db;
+            try {
+                db = await abrirBaseLocal();
+                const transaccion = db.transaction(['empleados', 'responsivas'], 'readonly');
+                const empleadosRequest = transaccion.objectStore('empleados').getAll();
+                const responsivasRequest = transaccion.objectStore('responsivas').getAll();
+                const [empleados, responsivas] = await Promise.all([
+                    new Promise((resolve, reject) => {
+                        empleadosRequest.onsuccess = () => resolve(empleadosRequest.result);
+                        empleadosRequest.onerror = () => reject(empleadosRequest.error);
+                    }),
+                    new Promise((resolve, reject) => {
+                        responsivasRequest.onsuccess = () => resolve(responsivasRequest.result);
+                        responsivasRequest.onerror = () => reject(responsivasRequest.error);
+                    })
+                ]);
+                const respaldo = JSON.stringify({
+                    version: 1,
+                    exportadoEn: new Date().toISOString(),
+                    empleados,
+                    responsivas
+                }, null, 2);
+                const url = URL.createObjectURL(new Blob([respaldo], { type: 'application/json' }));
+                const enlace = document.createElement('a');
+                enlace.href = url;
+                enlace.download = `firmas-menshen-respaldo-${new Date().toISOString().slice(0, 10)}.json`;
+                enlace.click();
+                window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+            } catch (error) {
+                console.error('No se pudo exportar la base local:', error);
+                window.alert(error.message || 'No se pudo crear el respaldo.');
+            } finally {
+                if (db) db.close();
+            }
+        });
+
+        const importarDatosArchivo = document.getElementById('importarDatosArchivo');
+        document.getElementById('importarDatosBoton').addEventListener('click', () => {
+            importarDatosArchivo.click();
+        });
+
+        importarDatosArchivo.addEventListener('change', async (evento) => {
+            const archivo = evento.target.files && evento.target.files[0];
+            if (!archivo) return;
+
+            let db;
+            try {
+                const respaldo = JSON.parse(await archivo.text());
+                if (respaldo.version !== 1 || !Array.isArray(respaldo.empleados)
+                    || !Array.isArray(respaldo.responsivas)) {
+                    throw new Error('El archivo no es un respaldo válido de Firmas MENSHEN.');
+                }
+                if (!window.confirm('Importar este respaldo reemplazará los datos locales de este iPad. ¿Continuar?')) {
+                    return;
+                }
+
+                db = await abrirBaseLocal();
+                const transaccion = db.transaction(['empleados', 'responsivas'], 'readwrite');
+                const empleadosStore = transaccion.objectStore('empleados');
+                const responsivasStore = transaccion.objectStore('responsivas');
+                empleadosStore.clear();
+                responsivasStore.clear();
+                respaldo.empleados.forEach((empleado) => empleadosStore.put(empleado));
+                respaldo.responsivas.forEach((responsiva) => responsivasStore.put(responsiva));
+                transaccion.oncomplete = () => window.alert('Respaldo restaurado correctamente en este iPad.');
+                transaccion.onerror = () => window.alert('No se pudo restaurar el respaldo.');
+                transaccion.onabort = () => window.alert('Se canceló la restauración del respaldo.');
+            } catch (error) {
+                console.error('No se pudo importar el respaldo:', error);
+                window.alert(error.message || 'No se pudo leer el archivo de respaldo.');
+            } finally {
+                if (db) db.close();
+                evento.target.value = '';
+            }
+        });
+
         for (let indice = 0; indice < 2; indice += 1) {
             crearFila();
+        }
+
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch((error) => {
+                console.error('No se pudo activar el modo sin conexión:', error);
+            });
         }
     </script>
 </body>
