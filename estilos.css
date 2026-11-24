@@ -206,14 +206,14 @@
             min-width: 1400px;
         }
 
-        .col-fecha { width: 7%; }
-        .col-region { width: 10%; }
-        .col-equipo { width: 19%; }
-        .col-talla { width: 6%; }
+        .col-fecha { width: 9%; }
+        .col-region { width: 12%; }
+        .col-equipo { width: 18%; }
+        .col-talla { width: 7%; }
         .col-unidad { width: 5%; }
         .col-cantidad { width: 5%; }
         .col-motivo { width: 11%; }
-        .col-firma { width: 16.5%; }
+        .col-firma { width: 14.5%; }
         .col-acciones { width: 4%; }
 
         .celda-firma {
@@ -372,12 +372,20 @@
             }
 
             .datos-empleado {
-                min-width: 760px;
+                min-width: 900px;
             }
 
             .datos-empleado td {
-                height: 64px;
-                padding: 8px;
+                height: 80px;
+                padding: 6px;
+            }
+
+            .datos-empleado input {
+                display: block;
+            }
+
+            .datos-empleado td small {
+                margin-top: 3px;
             }
 
             .datos-empleado input,
@@ -395,6 +403,11 @@
             .tabla-entregas input,
             .tabla-entregas select {
                 height: 44px;
+            }
+
+            .tabla-entregas .fecha-entrega {
+                padding: 4px;
+                font-size: 14px;
             }
 
             .celda-firma {
@@ -439,7 +452,7 @@
             }
 
             .datos-empleado {
-                min-width: 760px;
+                min-width: 900px;
             }
         }
 
