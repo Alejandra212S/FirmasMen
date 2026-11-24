@@ -1,0 +1,4 @@
+DB_SERVER=localhost\SQLEXPRESS
+DB_NAME=EnviosImagenesDB
+DB_USER=UsuarioPlanta
+DB_PASSWORD=Menshen12
