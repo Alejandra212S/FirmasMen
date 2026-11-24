@@ -1,4 +1,4 @@
-const CACHE_NAME = 'firmas-menshen-shell-v4';
+const CACHE_NAME = 'firmas-menshen-shell-v5';
 const APP_BASE_URL = new URL('./', self.location.href);
 const APP_PATH = APP_BASE_URL.pathname;
 const SHELL_FILES = [

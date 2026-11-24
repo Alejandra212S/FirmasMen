@@ -375,11 +375,50 @@
                 min-width: 760px;
             }
 
+            .datos-empleado td {
+                height: 64px;
+                padding: 8px;
+            }
+
             .datos-empleado input,
             .tabla-entregas input,
             .tabla-entregas select {
                 min-height: 44px;
                 font-size: 16px;
+            }
+
+            .tabla-entregas td {
+                height: 120px;
+                padding: 7px;
+            }
+
+            .tabla-entregas input,
+            .tabla-entregas select {
+                height: 44px;
+            }
+
+            .celda-firma {
+                height: 104px;
+                gap: 4px;
+            }
+
+            .celda-firma input {
+                height: 36px;
+                min-height: 36px;
+                font-size: 14px;
+            }
+
+            .firma-contenido {
+                min-height: 24px;
+                flex: 1 1 24px;
+            }
+
+            .firma-imagen {
+                height: 24px;
+            }
+
+            .boton-firma {
+                min-height: 36px;
             }
 
             .pie-formato {
