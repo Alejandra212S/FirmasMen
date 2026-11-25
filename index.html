@@ -674,8 +674,7 @@
     imagen.className = 'firma-imagen';
     imagen.alt = 'Firma digital capturada';
 
-    // Comprime la firma para Firebase
-    imagen.src = canvasFirma.toDataURL('image/jpeg', 0.7);
+    imagen.src = canvasFirma.toDataURL('image/png');
 
     contenido.replaceChildren(imagen);
     cerrarFirma();
