@@ -781,6 +781,52 @@
             });
         }
 
+        function crearLogoRecortadoParaImpresion(logo) {
+            const lienzo = document.createElement('canvas');
+            lienzo.width = logo.naturalWidth;
+            lienzo.height = logo.naturalHeight;
+            const contexto = lienzo.getContext('2d');
+            if (!contexto) throw new Error('No se pudo preparar el logo para imprimir.');
+            contexto.drawImage(logo, 0, 0);
+
+            const datos = contexto.getImageData(0, 0, lienzo.width, lienzo.height).data;
+            let izquierda = lienzo.width;
+            let arriba = lienzo.height;
+            let derecha = -1;
+            let abajo = -1;
+
+            for (let y = 0; y < lienzo.height; y += 1) {
+                for (let x = 0; x < lienzo.width; x += 1) {
+                    const indice = (y * lienzo.width + x) * 4;
+                    if (datos[indice + 3] === 0
+                        || (datos[indice] > 245 && datos[indice + 1] > 245 && datos[indice + 2] > 245)) {
+                        continue;
+                    }
+                    izquierda = Math.min(izquierda, x);
+                    arriba = Math.min(arriba, y);
+                    derecha = Math.max(derecha, x);
+                    abajo = Math.max(abajo, y);
+                }
+            }
+
+            if (derecha < izquierda || abajo < arriba) {
+                throw new Error('No se encontró el logo dentro de la imagen.');
+            }
+
+            const margen = 8;
+            const x = Math.max(0, izquierda - margen);
+            const y = Math.max(0, arriba - margen);
+            const ancho = Math.min(lienzo.width, derecha + margen + 1) - x;
+            const alto = Math.min(lienzo.height, abajo + margen + 1) - y;
+            const recorte = document.createElement('canvas');
+            recorte.width = ancho;
+            recorte.height = alto;
+            const contextoRecorte = recorte.getContext('2d');
+            if (!contextoRecorte) throw new Error('No se pudo recortar el logo para imprimir.');
+            contextoRecorte.drawImage(lienzo, x, y, ancho, alto, 0, 0, ancho, alto);
+            return recorte.toDataURL('image/png');
+        }
+
         async function prepararFormatoParaImprimir(filasConEquipo) {
             printArea.replaceChildren();
 
@@ -802,6 +848,15 @@
                 imagen.style.setProperty('border', '0', 'important');
                 imagen.style.setProperty('background', 'transparent', 'important');
             });
+
+            const logoOriginal = formatoOriginal.querySelector('.logo-menshen');
+            const logoImpresion = formato.querySelector('.logo-menshen');
+            if (!logoOriginal || !logoImpresion) {
+                throw new Error('No se encontró el logo de MENSHEN para imprimir.');
+            }
+            await esperarImagenParaImpresion(logoOriginal);
+            logoImpresion.src = crearLogoRecortadoParaImpresion(logoOriginal);
+            logoImpresion.loading = 'eager';
 
             const filasSeleccionadas = new Set(filasConEquipo.map((fila) => (
                 [...filasEquipo.children].indexOf(fila)
@@ -1062,22 +1117,6 @@
                 console.error('No se pudo activar el modo sin conexión:', error);
             });
         }
-        const storage = getStorage();
-
-const firmaRef = ref(
-  storage,
-  `firmas/${empleado.nomina}/firma-recibe.jpg`
-);
-
-await uploadString(
-  firmaRef,
-  imagen.src,
-  "data_url"
-);
-
-const url = await getDownloadURL(firmaRef);
-
-console.log(url);
     </script>
 </body>
 </html>
