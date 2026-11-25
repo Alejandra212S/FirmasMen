@@ -601,8 +601,6 @@
             celdaFirmaActiva = celda;
             firmaTrazada = false;
             contextoFirma.clearRect(0, 0, canvasFirma.width, canvasFirma.height);
-            contextoFirma.fillStyle = '#fff';
-            contextoFirma.fillRect(0, 0, canvasFirma.width, canvasFirma.height);
             modalFirma.hidden = false;
             document.getElementById('limpiarFirma').focus();
         }
@@ -656,8 +654,6 @@
 
         document.getElementById('limpiarFirma').addEventListener('click', () => {
             contextoFirma.clearRect(0, 0, canvasFirma.width, canvasFirma.height);
-            contextoFirma.fillStyle = '#fff';
-            contextoFirma.fillRect(0, 0, canvasFirma.width, canvasFirma.height);
             firmaTrazada = false;
         });
 
