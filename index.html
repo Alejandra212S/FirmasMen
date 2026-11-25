@@ -720,6 +720,12 @@
             formato.querySelector('#estadoNomina')?.remove();
             convertirControlesEnTexto(formatoOriginal, formato);
             formato.querySelectorAll('.boton-firma, .boton-quitar').forEach((boton) => boton.remove());
+            formato.querySelectorAll('.firma-imagen').forEach((imagen) => {
+                imagen.style.setProperty('filter', 'none', 'important');
+                imagen.style.setProperty('-webkit-filter', 'none', 'important');
+                imagen.style.setProperty('border', '0', 'important');
+                imagen.style.setProperty('background', 'transparent', 'important');
+            });
 
             const filasSeleccionadas = new Set(filasConEquipo.map((fila) => (
                 [...filasEquipo.children].indexOf(fila)
