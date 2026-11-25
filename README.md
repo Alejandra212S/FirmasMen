@@ -30,7 +30,9 @@ Al escribir una nómina existente, el formulario consulta la colección `emplead
 
 ## Guardado en Firestore
 
-`config.js` conecta la aplicación con el proyecto Firebase ya configurado. Al guardar una responsiva con conexión, se guarda en Firestore en `responsivas/{id}` y sus equipos y firmas en la subcolección `equipos`. Los datos del empleado se guardan en `empleados/{nomina}` para autocompletar futuras responsivas. También se conserva una copia local en IndexedDB para usar la aplicación sin conexión.
+`config.js` conecta la aplicación con el proyecto Firebase ya configurado. Los datos del empleado, el contenido de cada responsiva y cada equipo se cifran con AES-GCM antes de guardarse en Firestore. Los datos cifrados se descifran al buscar un empleado; los documentos antiguos sin cifrar siguen siendo compatibles. Los nuevos documentos de empleado usan el SHA-256 de la nómina como ID; los registros antiguos conservan su ruta original hasta que se migren. La copia local de las responsivas y los respaldos exportados también se cifran; el registro local de empleados permanece sin cifrar.
+
+**Importante:** el hash de nómina oculta el valor a simple vista, pero una nómina predecible puede adivinarse probando valores posibles. La clave de cifrado también está escrita en el JavaScript que se publica con la aplicación, por lo que cualquier persona que descargue el sitio puede obtenerla. Esto no sustituye un secreto privado ni protege contra alguien que inspeccione el código. Los registros antiguos no se migran automáticamente.
 
 La app usa las reglas actuales de Firestore; deben permitir leer y escribir en esas colecciones. Si Firestore rechaza una operación, se muestra el error y el registro local se conserva.
 
