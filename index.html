@@ -659,9 +659,62 @@
 
         document.getElementById('cancelarFirma').addEventListener('click', cerrarFirma);
 
+        function obtenerFirmaRecortada() {
+            const ancho = canvasFirma.width;
+            const alto = canvasFirma.height;
+            const pixeles = contextoFirma.getImageData(0, 0, ancho, alto).data;
+            let izquierda = ancho;
+            let arriba = alto;
+            let derecha = -1;
+            let abajo = -1;
+
+            for (let y = 0; y < alto; y += 1) {
+                for (let x = 0; x < ancho; x += 1) {
+                    if (pixeles[(y * ancho + x) * 4 + 3] <= 16) continue;
+                    izquierda = Math.min(izquierda, x);
+                    arriba = Math.min(arriba, y);
+                    derecha = Math.max(derecha, x);
+                    abajo = Math.max(abajo, y);
+                }
+            }
+
+            if (derecha < izquierda || abajo < arriba) return null;
+
+            const margen = 24;
+            const x = Math.max(0, izquierda - margen);
+            const y = Math.max(0, arriba - margen);
+            const anchoRecorte = Math.min(ancho, derecha + margen + 1) - x;
+            const altoRecorte = Math.min(alto, abajo + margen + 1) - y;
+            const recorte = document.createElement('canvas');
+            recorte.width = anchoRecorte;
+            recorte.height = altoRecorte;
+
+            const contextoRecorte = recorte.getContext('2d');
+            if (!contextoRecorte) return null;
+
+            contextoRecorte.drawImage(
+                canvasFirma,
+                x,
+                y,
+                anchoRecorte,
+                altoRecorte,
+                0,
+                0,
+                anchoRecorte,
+                altoRecorte
+            );
+            return recorte.toDataURL('image/png');
+        }
+
       document.getElementById('guardarFirma').addEventListener('click', () => {
     if (!firmaTrazada || !celdaFirmaActiva) {
         window.alert('Dibuja la firma antes de guardarla.');
+        return;
+    }
+
+    const firmaRecortada = obtenerFirmaRecortada();
+    if (!firmaRecortada) {
+        window.alert('No se pudo preparar la firma. Vuelve a dibujarla.');
         return;
     }
 
@@ -670,7 +723,7 @@
     imagen.className = 'firma-imagen';
     imagen.alt = 'Firma digital capturada';
 
-    imagen.src = canvasFirma.toDataURL('image/png');
+    imagen.src = firmaRecortada;
 
     contenido.replaceChildren(imagen);
     cerrarFirma();
@@ -711,7 +764,24 @@
             copia.querySelectorAll('button').forEach((boton) => boton.remove());
         }
         //Funcion que se realizar para preparar el formto para imprimir, se esconden las celdas de firma y se eliminan las filas que no tienen equipo, se ejecutan las validacionesde de las celdas de firma y se valida que se aya agregado al menos un equipo de protección personal antes de imprimir
-        function prepararFormatoParaImprimir(filasConEquipo) {
+        function esperarImagenParaImpresion(imagen) {
+            return new Promise((resolve, reject) => {
+                const errorCarga = () => reject(new Error(
+                    `No se pudo cargar ${imagen.alt || 'una imagen'} para imprimir.`
+                ));
+
+                if (imagen.complete) {
+                    if (imagen.naturalWidth > 0) resolve();
+                    else errorCarga();
+                    return;
+                }
+
+                imagen.addEventListener('load', resolve, { once: true });
+                imagen.addEventListener('error', errorCarga, { once: true });
+            });
+        }
+
+        async function prepararFormatoParaImprimir(filasConEquipo) {
             printArea.replaceChildren();
 
             const formatoOriginal = document.getElementById('formatoEntrega');
@@ -761,7 +831,13 @@
             }
 
             printArea.append(formato);
+            await Promise.all(
+                [...formato.querySelectorAll('img')].map(esperarImagenParaImpresion)
+            );
             document.body.classList.add('imprimiendo');
+            await new Promise((resolve) => {
+                requestAnimationFrame(() => requestAnimationFrame(resolve));
+            });
         }
 
         window.addEventListener('afterprint', () => {
@@ -870,8 +946,13 @@
                     if (!resultadoGuardado.includes('correctamente en Firestore')) {
                         window.alert(resultadoGuardado);
                     }
-                    prepararFormatoParaImprimir(filasConEquipo);
-                    window.print();
+                    try {
+                        await prepararFormatoParaImprimir(filasConEquipo);
+                        window.print();
+                    } catch (error) {
+                        console.error('No se pudieron preparar las imágenes para imprimir:', error);
+                        window.alert(error.message || 'No se pudieron preparar las imágenes para imprimir.');
+                    }
                 } else {
                     window.alert(resultadoGuardado);
                 }
