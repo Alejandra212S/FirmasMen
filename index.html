@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#003d57">
@@ -179,10 +180,76 @@
                 </div>
             </td>
             <td class="solo-pantalla"><button class="boton-quitar" type="button" aria-label="Quitar equipo">Quitar</button></td>
+
         </tr>
     </template>
 
     <script type="module">
+
+        const CLAVE_SECRETA = "MENSHEN_2026_SEGURA";
+        async function obtenerClave() {
+            const encoder = new TextEncoder();
+            const hash = await crypto.subtle.digest(
+                'SHA-256',
+                encoder.encode(CLAVE_SECRETA)
+            );
+            return crypto.subtle.importKey(
+                'raw',
+                hash,
+                { name: 'AES-GCM' },
+                false,
+                ['encrypt', 'decrypt']
+            );
+        }
+
+        function bytesABase64(bytes) {
+            let binario = '';
+            const tamanoBloque = 0x8000;
+            for (let inicio = 0; inicio < bytes.length; inicio += tamanoBloque) {
+                binario += String.fromCharCode(...bytes.subarray(inicio, inicio + tamanoBloque));
+            }
+            return btoa(binario);
+        }
+
+        async function cifrarTexto(texto) {
+            const clave = await obtenerClave();
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const cifrado = await crypto.subtle.encrypt(
+                { name: 'AES-GCM', iv },
+                clave,
+                new TextEncoder().encode(texto)
+            );
+            return {
+                iv: Array.from(iv),
+                data: bytesABase64(new Uint8Array(cifrado))
+            };
+        }
+
+        async function descifrarTexto(objeto) {
+            const clave = await obtenerClave();
+            const datos = Uint8Array.from(
+                atob(objeto.data),
+                (caracter) => caracter.charCodeAt(0)
+            );
+            const texto = await crypto.subtle.decrypt(
+                { name: 'AES-GCM', iv: new Uint8Array(objeto.iv) },
+                clave,
+                datos
+            );
+            return new TextDecoder().decode(texto);
+        }
+
+        async function obtenerIdEmpleadoHash(nomina) {
+            const hash = await crypto.subtle.digest(
+                'SHA-256',
+                new TextEncoder().encode(String(nomina).trim())
+            );
+            return [...new Uint8Array(hash)]
+                .map((byte) => byte.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+
         //Definición de variables para las tablas de los equipos, la fila,el modal o ¿canva de la firmas 
 
         const filasEquipo = document.getElementById('filasEquipo');
@@ -207,6 +274,8 @@
         const DB_NOMBRE = 'FirmasMENSHENLocal';
         const DB_VERSION = 1;
 
+        //Función para abrir la base de datos local, si no existe se crea y si existe se abre y s ehabren las dos tablas que se tienen. rimero empleados y segundo responsivas, en donde se guaardan los datos se son capturados
+
         function abrirBaseLocal() {
             return new Promise((resolve, reject) => {
                 if (!window.indexedDB) {
@@ -228,6 +297,7 @@
                 solicitud.onerror = () => reject(solicitud.error || new Error('No se pudo abrir la base local.'));
             });
         }
+        //Función para buscar a los empleados con su nomina y si no se encuentra en la base de datos local se regresa a null, si se encuentra se regresa el objeto con los datos del empleados como el nombre la fecha de ingreso, el area al que corresponde y el puesto quese tiene
 
         async function buscarEmpleadoLocal(nomina) {
             const db = await abrirBaseLocal();
@@ -245,16 +315,19 @@
                 };
             });
         }
+        //funcion qu abre la base local,
 
         async function guardarResponsivaLocal(registro) {
+            const datosCifrados = await cifrarTexto(JSON.stringify(registro));
             const db = await abrirBaseLocal();
             return new Promise((resolve, reject) => {
                 const transaccion = db.transaction(['empleados', 'responsivas'], 'readwrite');
                 transaccion.objectStore('empleados').put(registro.empleado);
                 transaccion.objectStore('responsivas').add({
-                    ...registro,
+                    datos: datosCifrados,
                     guardadoEn: new Date().toISOString()
                 });
+
                 transaccion.oncomplete = () => {
                     db.close();
                     resolve();
@@ -269,7 +342,7 @@
                 };
             });
         }
-
+   //Se configura la conexion hacia la base de datos de firebase
         function cargarClienteFirebase() {
             if (!clienteFirebasePromise) {
                 clienteFirebasePromise = import('./config.js')
@@ -284,12 +357,31 @@
             }
             return clienteFirebasePromise;
         }
+        //Posterior se busca al empleado nuevamente con la nomina
 
         async function buscarEmpleadoFirebase(nomina) {
             const cliente = await cargarClienteFirebase();
-            const referencia = cliente.doc(cliente.db, 'empleados', encodeURIComponent(nomina));
-            const resultado = await cliente.getDoc(referencia);
-            return resultado.exists() ? resultado.data() : null;
+            const idHash = await obtenerIdEmpleadoHash(nomina);
+            const referenciaHash = cliente.doc(cliente.db, 'empleados', idHash);
+            const resultadoHash = await cliente.getDoc(referenciaHash);
+            if (resultadoHash.exists()) {
+                const datos = resultadoHash.data();
+                return datos.datosCifrados
+                    ? JSON.parse(await descifrarTexto(datos.datosCifrados))
+                    : datos;
+            }
+
+            const referenciaAnterior = cliente.doc(
+                cliente.db,
+                'empleados',
+                encodeURIComponent(nomina)
+            );
+            const resultadoAnterior = await cliente.getDoc(referenciaAnterior);
+            if (!resultadoAnterior.exists()) return null;
+            const datosAnteriores = resultadoAnterior.data();
+            return datosAnteriores.datosCifrados
+                ? JSON.parse(await descifrarTexto(datosAnteriores.datosCifrados))
+                : datosAnteriores;
         }
 
         async function guardarResponsivaFirebase(registro) {
@@ -299,40 +391,48 @@
 
             const cliente = await cargarClienteFirebase();
             const batch = cliente.writeBatch(cliente.db);
+            const idEmpleadoHash = await obtenerIdEmpleadoHash(registro.empleado.nomina);
             const empleadoRef = cliente.doc(
                 cliente.db,
                 'empleados',
-                encodeURIComponent(registro.empleado.nomina)
+                idEmpleadoHash
             );
             batch.set(empleadoRef, {
-                ...registro.empleado,
+                datosCifrados: await cifrarTexto(JSON.stringify(registro.empleado)),
                 actualizadoEn: cliente.serverTimestamp()
             });
 
             const responsivaRef = cliente.doc(
                 cliente.collection(cliente.db, 'responsivas')
             );
-            batch.set(responsivaRef, {
+            const datosCifrados = await cifrarTexto(JSON.stringify({
                 empleado: registro.empleado,
                 nomina: registro.empleado.nomina,
-                numeroEquipos: registro.equipos.length,
+                numeroEquipos: registro.equipos.length
+            }));
+            batch.set(responsivaRef, {
+                datosCifrados,
                 creadoEn: cliente.serverTimestamp()
             });
 
-            registro.equipos.forEach((equipo, indice) => {
-                if (equipo.firmaRecibe.length + equipo.firmaEntrega.length > 700000) {
-                    throw new Error(`Las firmas del equipo ${indice + 1} son demasiado grandes para Firestore.`);
+            for (const [indice, equipo] of registro.equipos.entries()) {
+                if (equipo.firmaRecibe.length + equipo.firmaEntrega.length > 700000
+                    || new TextEncoder().encode(JSON.stringify(equipo)).length > 700000) {
+                    throw new Error(`Los datos del equipo ${indice + 1} son demasiado grandes para Firestore.`);
                 }
 
                 const equipoRef = cliente.doc(
                     cliente.collection(responsivaRef, 'equipos'),
                     String(indice + 1)
                 );
-                batch.set(equipoRef, equipo);
-            });
+                batch.set(equipoRef, {
+                    datosCifrados: await cifrarTexto(JSON.stringify(equipo))
+                });
+            }
 
             await batch.commit();
         }
+
 
         function limpiarDatosEmpleado() {
             nombreInput.value = '';
@@ -390,7 +490,7 @@
             }, 350);
         });
 
-        //Definición de catalogos de equipos que se tienen dentro de la empresa, se definen por región atomatica, unidad de medida (par o pieza y los productos que se tienen dentro de cada region)
+            //Definición de catalogos de equipos que se tienen dentro de la empresa, se definen por región atomatica, unidad de medida (par o pieza y los productos que se tienen dentro de cada region)
 
         const catalogo = [
             {
@@ -540,6 +640,7 @@
             agregarOpcion(select, etiqueta, '');
             select.value = '';
         }
+
         //aactualizar datos de cada región del cuero desde 1-8 para que se pueda seleccionar el equipo de protección personal, la talla y la unidad de medida (pieza o par)
         function actualizarProductos(fila) {
             const region = catalogo.find((grupo) => grupo.region === fila.querySelector('.region-equipo').value);
@@ -557,6 +658,7 @@
                 }
             }
         }
+        //Función poara actualizar las tallas
 
         function actualizarTallas(fila) {
             const grupo = catalogo.find((item) => item.region === fila.querySelector('.region-equipo').value);
@@ -958,7 +1060,7 @@
                     return;
                 }
             }
-
+ //Constante de empleados, dentro de nomina, nombre, fechaIngreso, area y puesto
             const empleado = {
                 nomina: formulario.querySelector('[name="nomina"]').value.trim(),
                 nombre: formulario.querySelector('[name="nombre"]').value.trim(),
@@ -1048,12 +1150,14 @@
                         responsivasRequest.onerror = () => reject(responsivasRequest.error);
                     })
                 ]);
-                const respaldo = JSON.stringify({
+                const respaldoCifrado = await cifrarTexto(JSON.stringify({
                     version: 1,
                     exportadoEn: new Date().toISOString(),
                     empleados,
                     responsivas
-                }, null, 2);
+                }));
+                const respaldo = JSON.stringify(respaldoCifrado, null, 2);
+
                 const url = URL.createObjectURL(new Blob([respaldo], { type: 'application/json' }));
                 const enlace = document.createElement('a');
                 enlace.href = url;
@@ -1067,7 +1171,7 @@
                 if (db) db.close();
             }
         });
-
+//Función pdel boton de importar datos para que se carguen en l base de datos
         const importarDatosArchivo = document.getElementById('importarDatosArchivo');
         document.getElementById('importarDatosBoton').addEventListener('click', () => {
             importarDatosArchivo.click();
@@ -1079,7 +1183,12 @@
 
             let db;
             try {
-                const respaldo = JSON.parse(await archivo.text());
+                const archivoRespaldo = JSON.parse(await archivo.text());
+                const respaldo = archivoRespaldo
+                    && Array.isArray(archivoRespaldo.iv)
+                    && typeof archivoRespaldo.data === 'string'
+                    ? JSON.parse(await descifrarTexto(archivoRespaldo))
+                    : archivoRespaldo;
                 if (respaldo.version !== 1 || !Array.isArray(respaldo.empleados)
                     || !Array.isArray(respaldo.responsivas)) {
                     throw new Error('El archivo no es un respaldo válido de Firmas MENSHEN.');
