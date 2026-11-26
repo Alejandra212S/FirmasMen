@@ -14,7 +14,20 @@
     <link rel="stylesheet" href="estilos.css">
 </head>
 <body>
-    <main class="pagina">
+    <section class="bloqueo-app" id="bloqueoApp" aria-labelledby="tituloDesbloqueo">
+        <form class="bloqueo-tarjeta" id="formularioDesbloqueo">
+            <h1 id="tituloDesbloqueo">Desbloquear Firmas MENSHEN</h1>
+            <p>Ingresa un PIN de 4 dígitos para cifrar y consultar registros nuevos. Este PIN es menos seguro que una frase larga; guárdalo bien.</p>
+            <label for="fraseSecreta">PIN de 4 dígitos</label>
+            <input id="fraseSecreta" type="password" inputmode="numeric" pattern="[0-9]{4}" autocomplete="current-password" minlength="4" maxlength="4" required>
+            <label id="etiquetaConfirmarFrase" for="confirmarFrase">Confirma tu PIN</label>
+            <input id="confirmarFrase" type="password" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password" minlength="4" maxlength="4" required>
+            <p id="estadoDesbloqueo" role="status" aria-live="polite"></p>
+            <button class="boton-principal" type="submit">Desbloquear</button>
+            <button class="boton-secundario" id="restablecerPin" type="button" hidden>Olvidé mi PIN</button>
+        </form>
+    </section>
+    <main class="pagina" id="aplicacion" hidden>
         <div class="barra-acciones">
 
              <!-- Botonos principales -->
@@ -22,9 +35,28 @@
             <button class="boton-secundario" id="guardarFormato" type="button">Guardar</button>
             <button class="boton-secundario" id="exportarDatos" type="button">Exportar respaldo</button>
             <button class="boton-secundario" id="importarDatosBoton" type="button">Importar respaldo</button>
+            <button class="boton-secundario" id="verEmpleados" type="button" aria-expanded="false" aria-controls="panelEmpleados">Ver empleados A–Z</button>
             <button class="boton-principal" id="imprimirFormato" type="button">Validar e imprimir / guardar PDF</button>
             <input id="importarDatosArchivo" type="file" accept=".json,application/json" hidden>
         </div>
+        <section id="panelEmpleados" hidden aria-labelledby="tituloEmpleados">
+            <h2 class="seccion-titulo" id="tituloEmpleados">Empleados ordenados por nombre</h2>
+            <p id="estadoListadoEmpleados" role="status" aria-live="polite"></p>
+            <div class="tabla-contenedor">
+                <table class="datos-empleado">
+                    <thead>
+                        <tr>
+                            <th>Nombre completo</th>
+                            <th>No. de nómina</th>
+                            <th>Fecha de ingreso</th>
+                            <th>Área</th>
+                            <th>Puesto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="filasEmpleados"></tbody>
+                </table>
+            </div>
+        </section>
          <!-- Inicio de formato -->
         <form class="formato" id="formatoEntrega">
             <header class="encabezado">
@@ -122,7 +154,7 @@
     <div class="modal" id="modalFirma" role="dialog" aria-modal="true" aria-labelledby="tituloFirma" hidden>
         <section class="modal-contenido">
             <h2 id="tituloFirma">Firma digital</h2>
-            <p>Dibuja la firma en el recuadro. La firma se agregará al renglón del equipo seleccionado.</p>
+            <p>Firma con el dedo o el Apple Pencil en el recuadro. La firma se agregará al renglón del equipo seleccionado.</p>
 
             <!--Gruesor de el lapiz para dibujar la firma que se requiere-->
             <canvas id="canvasFirma" width="1000" height="380" aria-label="Área para dibujar la firma"></canvas>
@@ -186,20 +218,50 @@
 
     <script type="module">
 
-        const CLAVE_SECRETA = "MENSHEN_2026_SEGURA";
-        async function obtenerClave() {
-            const encoder = new TextEncoder();
+        const CLAVE_ANTERIOR = "MENSHEN_2026_SEGURA";
+        const ITERACIONES_PBKDF2 = 600000;
+        const CLAVE_VERIFICADOR = 'firmasMenshen.verificadorCifrado';
+        const SALT_INDICE_EMPLEADO = new TextEncoder().encode('Firmas MENSHEN employee index v2');
+        let fraseSecretaSesion = '';
+        let saltCifradoSesion = null;
+        let claveIndiceSesion = null;
+        const clavesDerivadasSesion = new Map();
+
+        async function obtenerClaveAnterior() {
             const hash = await crypto.subtle.digest(
                 'SHA-256',
-                encoder.encode(CLAVE_SECRETA)
+                new TextEncoder().encode(CLAVE_ANTERIOR)
             );
-            return crypto.subtle.importKey(
+            return crypto.subtle.importKey('raw', hash, { name: 'AES-GCM' }, false, ['decrypt']);
+        }
+
+        async function obtenerClaveNueva(frase, salt) {
+            const idSalt = bytesABase64(salt);
+            if (clavesDerivadasSesion.has(idSalt)) {
+                return clavesDerivadasSesion.get(idSalt);
+            }
+
+            const material = await crypto.subtle.importKey(
                 'raw',
-                hash,
-                { name: 'AES-GCM' },
+                new TextEncoder().encode(frase),
+                'PBKDF2',
+                false,
+                ['deriveKey']
+            );
+            const clave = await crypto.subtle.deriveKey(
+                {
+                    name: 'PBKDF2',
+                    salt,
+                    iterations: ITERACIONES_PBKDF2,
+                    hash: 'SHA-256'
+                },
+                material,
+                { name: 'AES-GCM', length: 256 },
                 false,
                 ['encrypt', 'decrypt']
             );
+            clavesDerivadasSesion.set(idSalt, clave);
+            return clave;
         }
 
         function bytesABase64(bytes) {
@@ -211,8 +273,15 @@
             return btoa(binario);
         }
 
+        function base64ABytes(texto) {
+            return Uint8Array.from(atob(texto), (caracter) => caracter.charCodeAt(0));
+        }
+
         async function cifrarTexto(texto) {
-            const clave = await obtenerClave();
+            if (!fraseSecretaSesion || !saltCifradoSesion) {
+                throw new Error('Desbloquea la aplicación antes de cifrar información.');
+            }
+            const clave = await obtenerClaveNueva(fraseSecretaSesion, saltCifradoSesion);
             const iv = crypto.getRandomValues(new Uint8Array(12));
             const cifrado = await crypto.subtle.encrypt(
                 { name: 'AES-GCM', iv },
@@ -220,17 +289,31 @@
                 new TextEncoder().encode(texto)
             );
             return {
+                version: 2,
+                salt: bytesABase64(saltCifradoSesion),
                 iv: Array.from(iv),
                 data: bytesABase64(new Uint8Array(cifrado))
             };
         }
 
         async function descifrarTexto(objeto) {
-            const clave = await obtenerClave();
-            const datos = Uint8Array.from(
-                atob(objeto.data),
-                (caracter) => caracter.charCodeAt(0)
-            );
+            if (objeto && objeto.version === 2 && typeof objeto.salt === 'string') {
+                if (!fraseSecretaSesion) {
+                    throw new Error('Desbloquea la aplicación para consultar estos datos.');
+                }
+                const salt = base64ABytes(objeto.salt);
+                const clave = await obtenerClaveNueva(fraseSecretaSesion, salt);
+                const datos = base64ABytes(objeto.data);
+                const texto = await crypto.subtle.decrypt(
+                    { name: 'AES-GCM', iv: new Uint8Array(objeto.iv) },
+                    clave,
+                    datos
+                );
+                return new TextDecoder().decode(texto);
+            }
+
+            const clave = await obtenerClaveAnterior();
+            const datos = base64ABytes(objeto.data);
             const texto = await crypto.subtle.decrypt(
                 { name: 'AES-GCM', iv: new Uint8Array(objeto.iv) },
                 clave,
@@ -239,9 +322,150 @@
             return new TextDecoder().decode(texto);
         }
 
-        async function obtenerIdEmpleadoHash(nomina) {
+        const bloqueoApp = document.getElementById('bloqueoApp');
+        const aplicacion = document.getElementById('aplicacion');
+        const formularioDesbloqueo = document.getElementById('formularioDesbloqueo');
+        const fraseSecretaInput = document.getElementById('fraseSecreta');
+        const confirmarFraseInput = document.getElementById('confirmarFrase');
+        const etiquetaConfirmarFrase = document.getElementById('etiquetaConfirmarFrase');
+        const estadoDesbloqueo = document.getElementById('estadoDesbloqueo');
+        const botonRestablecerPin = document.getElementById('restablecerPin');
+
+        function actualizarConfirmacionFrase() {
+            try {
+                const existeVerificador = Boolean(localStorage.getItem(CLAVE_VERIFICADOR));
+                etiquetaConfirmarFrase.hidden = existeVerificador;
+                confirmarFraseInput.hidden = existeVerificador;
+                confirmarFraseInput.required = !existeVerificador;
+                botonRestablecerPin.hidden = !existeVerificador;
+            } catch (error) {
+                console.error('No se pudo acceder al verificador de la frase secreta:', error);
+                formularioDesbloqueo.querySelector('button[type="submit"]').disabled = true;
+                estadoDesbloqueo.textContent = 'El navegador no permite guardar la verificación del PIN.';
+            }
+        }
+
+        botonRestablecerPin.addEventListener('click', () => {
+            const confirmado = window.confirm(
+                'Esto no borra los documentos, pero perderás acceso a los registros cifrados con el PIN anterior. Continúa solo si no guardaste registros nuevos con ese PIN. ¿Restablecerlo?'
+            );
+            if (!confirmado) return;
+
+            try {
+                localStorage.removeItem(CLAVE_VERIFICADOR);
+                fraseSecretaSesion = '';
+                saltCifradoSesion = null;
+                claveIndiceSesion = null;
+                clavesDerivadasSesion.clear();
+                formularioDesbloqueo.reset();
+                actualizarConfirmacionFrase();
+                estadoDesbloqueo.textContent = 'PIN restablecido. Elige uno nuevo y confírmalo.';
+                fraseSecretaInput.focus();
+            } catch (error) {
+                console.error('No se pudo restablecer el PIN:', error);
+                estadoDesbloqueo.textContent = 'No se pudo restablecer el PIN en este navegador.';
+            }
+        });
+
+        function bloquearAplicacion() {
+            fraseSecretaSesion = '';
+            saltCifradoSesion = null;
+            claveIndiceSesion = null;
+            clavesDerivadasSesion.clear();
+            aplicacion.hidden = true;
+            bloqueoApp.hidden = false;
+            actualizarConfirmacionFrase();
+        }
+
+        formularioDesbloqueo.addEventListener('submit', async (evento) => {
+            evento.preventDefault();
+            const frase = fraseSecretaInput.value;
+            estadoDesbloqueo.textContent = 'Verificando PIN...';
+            formularioDesbloqueo.querySelector('button[type="submit"]').disabled = true;
+
+            try {
+                if (!/^[0-9]{4}$/.test(frase)) {
+                    throw new Error('El PIN debe contener exactamente 4 dígitos.');
+                }
+                const verificadorGuardado = localStorage.getItem(CLAVE_VERIFICADOR);
+                if (verificadorGuardado) {
+                    fraseSecretaSesion = frase;
+                    const verificador = JSON.parse(verificadorGuardado);
+                    const textoVerificador = await descifrarTexto(verificador);
+                    if (textoVerificador !== 'Firmas MENSHEN: verificador de frase v2') {
+                        throw new Error('La verificación del PIN no coincide.');
+                    }
+                    saltCifradoSesion = base64ABytes(verificador.salt);
+                } else {
+                    if (frase !== confirmarFraseInput.value) {
+                        throw new Error('Los PIN no coinciden.');
+                    }
+
+                    fraseSecretaSesion = frase;
+                    saltCifradoSesion = crypto.getRandomValues(new Uint8Array(16));
+                    const verificador = await cifrarTexto('Firmas MENSHEN: verificador de frase v2');
+                    localStorage.setItem(CLAVE_VERIFICADOR, JSON.stringify(verificador));
+                    actualizarConfirmacionFrase();
+                }
+
+                bloqueoApp.hidden = true;
+                aplicacion.hidden = false;
+                formularioDesbloqueo.reset();
+                estadoDesbloqueo.textContent = '';
+            } catch (error) {
+                fraseSecretaSesion = '';
+                saltCifradoSesion = null;
+                claveIndiceSesion = null;
+                clavesDerivadasSesion.clear();
+                console.error('No se pudo desbloquear la aplicación:', error);
+                estadoDesbloqueo.textContent = 'No se pudo verificar el PIN. Comprueba que sea correcto y vuelve a intentar.';
+            } finally {
+                formularioDesbloqueo.querySelector('button[type="submit"]').disabled = false;
+            }
+        });
+
+        actualizarConfirmacionFrase();
+        window.addEventListener('pagehide', bloquearAplicacion);
+
+        async function obtenerIdEmpleadoHashAnterior(nomina) {
             const hash = await crypto.subtle.digest(
                 'SHA-256',
+                new TextEncoder().encode(String(nomina).trim())
+            );
+            return [...new Uint8Array(hash)]
+                .map((byte) => byte.toString(16).padStart(2, '0'))
+                .join('');
+        }
+
+        async function obtenerIdEmpleadoHash(nomina) {
+            if (!fraseSecretaSesion) {
+                throw new Error('Desbloquea la aplicación para consultar la nómina.');
+            }
+            if (!claveIndiceSesion) {
+                const material = await crypto.subtle.importKey(
+                    'raw',
+                    new TextEncoder().encode(fraseSecretaSesion),
+                    'PBKDF2',
+                    false,
+                    ['deriveKey']
+                );
+                claveIndiceSesion = await crypto.subtle.deriveKey(
+                    {
+                        name: 'PBKDF2',
+                        salt: SALT_INDICE_EMPLEADO,
+                        iterations: ITERACIONES_PBKDF2,
+                        hash: 'SHA-256'
+                    },
+                    material,
+                    { name: 'HMAC', hash: 'SHA-256', length: 256 },
+                    false,
+                    ['sign']
+                );
+            }
+
+            const hash = await crypto.subtle.sign(
+                'HMAC',
+                claveIndiceSesion,
                 new TextEncoder().encode(String(nomina).trim())
             );
             return [...new Uint8Array(hash)]
@@ -259,6 +483,7 @@
         const contextoFirma = canvasFirma.getContext('2d');
         let celdaFirmaActiva = null;
         let dibujando = false;
+        let punteroFirmaActivo = null;
         let firmaTrazada = false;
 
         const nominaInput = document.querySelector('[name="nomina"]');
@@ -267,12 +492,16 @@
         const areaInput = document.querySelector('[name="area"]');
         const puestoInput = document.querySelector('[name="puesto"]');
         const estadoNomina = document.getElementById('estadoNomina');
+        const botonVerEmpleados = document.getElementById('verEmpleados');
+        const panelEmpleados = document.getElementById('panelEmpleados');
+        const estadoListadoEmpleados = document.getElementById('estadoListadoEmpleados');
+        const filasEmpleados = document.getElementById('filasEmpleados');
         let buscarEmpleadoTemporizador;
         let clienteFirebasePromise;
         let clienteFirebase;
 
         const DB_NOMBRE = 'FirmasMENSHENLocal';
-        const DB_VERSION = 1;
+        const DB_VERSION = 2;
 
         //Función para abrir la base de datos local, si no existe se crea y si existe se abre y s ehabren las dos tablas que se tienen. rimero empleados y segundo responsivas, en donde se guaardan los datos se son capturados
 
@@ -361,14 +590,28 @@
 
         async function buscarEmpleadoFirebase(nomina) {
             const cliente = await cargarClienteFirebase();
-            const idHash = await obtenerIdEmpleadoHash(nomina);
-            const referenciaHash = cliente.doc(cliente.db, 'empleados', idHash);
-            const resultadoHash = await cliente.getDoc(referenciaHash);
-            if (resultadoHash.exists()) {
-                const datos = resultadoHash.data();
+            const idNuevo = await obtenerIdEmpleadoHash(nomina);
+            const referenciaNueva = cliente.doc(cliente.db, 'empleados', idNuevo);
+            const resultadoNuevo = await cliente.getDoc(referenciaNueva);
+            if (resultadoNuevo.exists()) {
+                const datos = resultadoNuevo.data();
                 return datos.datosCifrados
                     ? JSON.parse(await descifrarTexto(datos.datosCifrados))
                     : datos;
+            }
+
+            const idAnteriorHash = await obtenerIdEmpleadoHashAnterior(nomina);
+            const referenciaAnteriorHash = cliente.doc(
+                cliente.db,
+                'empleados',
+                idAnteriorHash
+            );
+            const resultadoAnteriorHash = await cliente.getDoc(referenciaAnteriorHash);
+            if (resultadoAnteriorHash.exists()) {
+                const datosAnterioresHash = resultadoAnteriorHash.data();
+                return datosAnterioresHash.datosCifrados
+                    ? JSON.parse(await descifrarTexto(datosAnterioresHash.datosCifrados))
+                    : datosAnterioresHash;
             }
 
             const referenciaAnterior = cliente.doc(
@@ -383,6 +626,87 @@
                 ? JSON.parse(await descifrarTexto(datosAnteriores.datosCifrados))
                 : datosAnteriores;
         }
+
+        async function obtenerEmpleadosFirebaseOrdenados() {
+            const cliente = await cargarClienteFirebase();
+            const resultado = await cliente.getDocs(
+                cliente.collection(cliente.db, 'empleados')
+            );
+            const registros = await Promise.all(resultado.docs.map(async (documento) => {
+                const datos = documento.data();
+                const empleado = datos.datosCifrados
+                    ? JSON.parse(await descifrarTexto(datos.datosCifrados))
+                    : datos;
+
+                return {
+                    empleado: {
+                        nombre: String(empleado.nombre || ''),
+                        nomina: String(empleado.nomina || ''),
+                        fechaIngreso: String(empleado.fechaIngreso || ''),
+                        area: String(empleado.area || ''),
+                        puesto: String(empleado.puesto || '')
+                    },
+                    cifradoNuevo: Boolean(datos.datosCifrados && datos.datosCifrados.version === 2)
+                };
+            }));
+            const empleadosPorNomina = new Map();
+            for (const registro of registros) {
+                const nomina = registro.empleado.nomina;
+                const anterior = empleadosPorNomina.get(nomina);
+                if (!anterior || (registro.cifradoNuevo && !anterior.cifradoNuevo)) {
+                    empleadosPorNomina.set(nomina, registro);
+                }
+            }
+
+            return [...empleadosPorNomina.values()]
+                .map((registro) => registro.empleado)
+                .filter((empleado) => empleado.nombre)
+                .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+        }
+
+        botonVerEmpleados.addEventListener('click', async () => {
+            if (!panelEmpleados.hidden) {
+                panelEmpleados.hidden = true;
+                botonVerEmpleados.setAttribute('aria-expanded', 'false');
+                return;
+            }
+
+            panelEmpleados.hidden = false;
+            botonVerEmpleados.setAttribute('aria-expanded', 'true');
+            botonVerEmpleados.disabled = true;
+            estadoListadoEmpleados.textContent = 'Cargando empleados desde Firestore...';
+            filasEmpleados.replaceChildren();
+
+            try {
+                const empleados = await obtenerEmpleadosFirebaseOrdenados();
+                if (empleados.length === 0) {
+                    estadoListadoEmpleados.textContent = 'No se encontraron empleados en Firestore.';
+                    return;
+                }
+
+                for (const empleado of empleados) {
+                    const fila = document.createElement('tr');
+                    for (const valor of [
+                        empleado.nombre,
+                        empleado.nomina,
+                        empleado.fechaIngreso,
+                        empleado.area,
+                        empleado.puesto
+                    ]) {
+                        const celda = document.createElement('td');
+                        celda.textContent = valor;
+                        fila.append(celda);
+                    }
+                    filasEmpleados.append(fila);
+                }
+                estadoListadoEmpleados.textContent = `Se encontraron ${empleados.length} empleados, ordenados de A a Z.`;
+            } catch (error) {
+                console.error('No se pudo cargar el listado de empleados:', error);
+                estadoListadoEmpleados.textContent = `No se pudo cargar el listado: ${error.message}`;
+            } finally {
+                botonVerEmpleados.disabled = false;
+            }
+        });
 
         async function guardarResponsivaFirebase(registro) {
             if (registro.equipos.length > 498) {
@@ -727,7 +1051,9 @@
         contextoFirma.lineJoin = 'round';
 
         canvasFirma.addEventListener('pointerdown', (evento) => {
+            if (punteroFirmaActivo !== null) return;
             evento.preventDefault();
+            punteroFirmaActivo = evento.pointerId;
             canvasFirma.setPointerCapture(evento.pointerId);
             dibujando = true;
             firmaTrazada = true;
@@ -735,18 +1061,29 @@
             contextoFirma.beginPath();
             contextoFirma.moveTo(punto.x, punto.y);
             contextoFirma.lineTo(punto.x, punto.y);
+            contextoFirma.lineWidth = grosorTrazo(evento);
             contextoFirma.stroke();
         });
 
         canvasFirma.addEventListener('pointermove', (evento) => {
-            if (!dibujando) return;
+            if (!dibujando || evento.pointerId !== punteroFirmaActivo) return;
+            evento.preventDefault();
             const punto = coordenadas(evento);
+            contextoFirma.lineWidth = grosorTrazo(evento);
             contextoFirma.lineTo(punto.x, punto.y);
             contextoFirma.stroke();
         });
 
-        function terminarTrazo() {
+        function grosorTrazo(evento) {
+            if (evento.pointerType !== 'pen') return 9;
+            const presion = evento.pressure > 0 ? evento.pressure : 0.5;
+            return 4 + presion * 10;
+        }
+
+        function terminarTrazo(evento) {
+            if (!dibujando || evento.pointerId !== punteroFirmaActivo) return;
             dibujando = false;
+            punteroFirmaActivo = null;
             contextoFirma.closePath();
         }
 
@@ -757,6 +1094,8 @@
         document.getElementById('limpiarFirma').addEventListener('click', () => {
             contextoFirma.clearRect(0, 0, canvasFirma.width, canvasFirma.height);
             firmaTrazada = false;
+            dibujando = false;
+            punteroFirmaActivo = null;
         });
 
         document.getElementById('cancelarFirma').addEventListener('click', cerrarFirma);

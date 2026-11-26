@@ -15,6 +15,45 @@
             padding: 28px 18px;
         }
 
+        .bloqueo-app {
+            display: grid;
+            min-height: calc(100dvh - 56px);
+            place-items: center;
+        }
+
+        .bloqueo-app[hidden],
+        .pagina[hidden] {
+            display: none !important;
+        }
+
+        .bloqueo-tarjeta {
+            display: grid;
+            width: min(100%, 440px);
+            gap: 12px;
+            padding: 24px;
+            background: #fff;
+            border: 1px solid #d5dce2;
+            box-shadow: 0 8px 26px rgba(24, 42, 58, 0.1);
+        }
+
+        .bloqueo-tarjeta h1,
+        .bloqueo-tarjeta p {
+            margin: 0;
+        }
+
+        .bloqueo-tarjeta label {
+            font-weight: 700;
+        }
+
+        .bloqueo-tarjeta input {
+            width: 100%;
+            min-height: 44px;
+            padding: 8px;
+            border: 1px solid #8997a3;
+            border-radius: 4px;
+            font: inherit;
+        }
+
         .pagina {
             width: min(100%, 1454px);
             margin: 0 auto;

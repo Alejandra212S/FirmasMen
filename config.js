@@ -6,6 +6,7 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   initializeFirestore,
   persistentLocalCache,
   persistentSingleTabManager,
@@ -39,6 +40,7 @@ export {
   collection,
   doc,
   getDoc,
+  getDocs,
   writeBatch,
   serverTimestamp
 };

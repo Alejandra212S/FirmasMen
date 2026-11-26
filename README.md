@@ -30,11 +30,15 @@ Al escribir una nómina existente, el formulario consulta la colección `emplead
 
 ## Guardado en Firestore
 
-`config.js` conecta la aplicación con el proyecto Firebase ya configurado. Los datos del empleado, el contenido de cada responsiva y cada equipo se cifran con AES-GCM antes de guardarse en Firestore. Los datos cifrados se descifran al buscar un empleado; los documentos antiguos sin cifrar siguen siendo compatibles. Los nuevos documentos de empleado usan el SHA-256 de la nómina como ID; los registros antiguos conservan su ruta original hasta que se migren. La copia local de las responsivas y los respaldos exportados también se cifran; el registro local de empleados permanece sin cifrar.
+`config.js` conecta la aplicación con el proyecto Firebase ya configurado. Al abrir la app se pide un PIN numérico de 4 dígitos. Los registros nuevos se cifran con AES-GCM usando una clave derivada del PIN mediante PBKDF2; el PIN no se guarda, solo permanece en memoria mientras la app está abierta. La verificación cifrada se conserva en el almacenamiento local del navegador. Los datos nuevos cifrados se pueden leer en otro dispositivo ingresando el mismo PIN. Los registros locales de empleados siguen sin cifrar.
 
-**Importante:** el hash de nómina oculta el valor a simple vista, pero una nómina predecible puede adivinarse probando valores posibles. La clave de cifrado también está escrita en el JavaScript que se publica con la aplicación, por lo que cualquier persona que descargue el sitio puede obtenerla. Esto no sustituye un secreto privado ni protege contra alguien que inspeccione el código. Los registros antiguos no se migran automáticamente.
+Los registros anteriores no se migran y siguen usando la clave antigua incluida en la aplicación para mantener su compatibilidad; por tanto, esos registros no obtienen la protección del PIN. Los nuevos IDs de empleado usan un HMAC derivado del PIN; los IDs antiguos siguen siendo hashes simples. Los respaldos nuevos se cifran con el PIN; los respaldos existentes se pueden importar con compatibilidad con el cifrado anterior.
 
-La app usa las reglas actuales de Firestore; deben permitir leer y escribir en esas colecciones. Si Firestore rechaza una operación, se muestra el error y el registro local se conserva.
+El botón **Ver empleados A–Z** lee los documentos de la colección `empleados`, descifra los datos en el navegador y ordena los nombres con `localeCompare` en JavaScript. Como el nombre está cifrado, Firestore no puede ordenar directamente por ese campo. Esta acción requiere reglas de Firestore que permitan leer esa colección.
+
+**Importante:** un PIN de 4 dígitos es débil: solo tiene 10,000 combinaciones y puede ser adivinado si alguien obtiene los datos cifrados. No lo consideres protección fuerte para información sensible; una frase secreta larga es mucho más segura. Conserva el PIN, porque si lo olvidas no se podrán descifrar los registros nuevos ni sus respaldos. El cifrado protege el contenido, pero no evita que alguien con reglas de Firestore demasiado abiertas lo borre o altere. Si Firestore rechaza una operación, se muestra el error y el registro local se conserva.
+
+La opción **Olvidé mi PIN** borra solo el verificador local para permitir configurar otro PIN. No elimina registros, pero los datos cifrados con el PIN anterior ya no se podrán descifrar.
 
 ## Firmas en SQL Server
 
