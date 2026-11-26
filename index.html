@@ -665,7 +665,7 @@
                 .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
         }
 
-        botonVerEmpleados.addEventListener('click', async () => {
+        botonVerEmpleados?.addEventListener('click', async () => {
             if (!panelEmpleados.hidden) {
                 panelEmpleados.hidden = true;
                 botonVerEmpleados.setAttribute('aria-expanded', 'false');
